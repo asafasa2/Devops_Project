@@ -19,7 +19,7 @@
   - Set up Ansible roles for different service types
   - _Requirements: 3.1, 3.2, 3.4_
 
-- [ ] 1.3 Initialize CI/CD pipeline structure
+- [-] 1.3 Initialize CI/CD pipeline structure
   - Create Jenkinsfile for basic pipeline definition
   - Set up pipeline stages for build, test, and deploy
   - _Requirements: 4.1, 4.2, 4.3_

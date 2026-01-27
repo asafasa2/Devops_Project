@@ -1,0 +1,82 @@
+# Test environment Docker Compose override
+version: '3.8'
+
+services:
+  # Test database with test data
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: test-postgres
+    environment:
+      POSTGRES_DB: devops_practice_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d devops_practice_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: test-redis
+    command: redis-server --appendonly no --save ""
+    tmpfs:
+      - /data
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Test services
+  api-gateway-test:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile.test
+    container_name: test-api-gateway
+    environment:
+      NODE_ENV: test
+      DB_HOST: postgres-test
+      REDIS_HOST: redis-test
+      DB_NAME: devops_practice_test
+      DB_USER: test_user
+      DB_PASSWORD: test_password
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    command: ["npm", "run", "test:integration"]
+
+  # Test runner for end-to-end tests
+  e2e-tests:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    container_name: e2e-tests
+    environment:
+      BASE_URL: http://api-gateway-test:4000
+      DB_HOST: postgres-test
+      DB_NAME: devops_practice_test
+      DB_USER: test_user
+      DB_PASSWORD: test_password
+    networks:
+      - test-network
+    depends_on:
+      - api-gateway-test
+    volumes:
+      - ./tests/results:/app/results
+    command: ["npm", "run", "test:e2e"]
+
+networks:
+  test-network:
+    driver: bridge

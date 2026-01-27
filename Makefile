@@ -92,5 +92,18 @@ validate: ## Validate configuration files
 	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml config >/dev/null
 	@echo "✅ All configurations are valid"
 
+# CI/CD Pipeline Commands
+setup-pipeline: ## Setup CI/CD pipeline infrastructure
+	@./scripts/pipeline-setup.sh $(ENV)
+
+health-check: ## Run health checks on deployed services
+	@./scripts/health-check.sh $(ENV)
+
+verify-deployment: ## Verify deployment status
+	@./scripts/verify-deployment.sh $(ENV)
+
+rollback: ## Rollback to previous version (requires PREV_VERSION)
+	@./scripts/rollback.sh $(ENV) $(PREV_VERSION)
+
 # Quick start
 quick-start: check-deps validate dev ## Quick start: Check deps, validate, and start dev environment

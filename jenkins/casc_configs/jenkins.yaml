@@ -1,0 +1,249 @@
+# Jenkins Configuration as Code for DevOps Practice Environment
+jenkins:
+  systemMessage: |
+    DevOps Practice Environment - CI/CD Pipeline
+    
+    This Jenkins instance is configured for the DevOps Practice Environment.
+    It includes pipelines for building, testing, and deploying the learning platform.
+  
+  numExecutors: 2
+  mode: NORMAL
+  
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: admin
+          password: ${JENKINS_ADMIN_PASSWORD:-admin123}
+          properties:
+            - "hudson.model.MyViewsProperty"
+            - "hudson.search.UserSearchProperty"
+            - "jenkins.security.ApiTokenProperty"
+        - id: developer
+          password: ${JENKINS_DEV_PASSWORD:-dev123}
+          properties:
+            - "hudson.model.MyViewsProperty"
+            - "hudson.search.UserSearchProperty"
+            - "jenkins.security.ApiTokenProperty"
+  
+  authorizationStrategy:
+    globalMatrix:
+      permissions:
+        - "Overall/Administer:admin"
+        - "Overall/Read:authenticated"
+        - "Job/Build:developer"
+        - "Job/Cancel:developer"
+        - "Job/Read:developer"
+        - "Job/Workspace:developer"
+        - "View/Read:authenticated"
+  
+  remotingSecurity:
+    enabled: true
+  
+  nodes:
+    - permanent:
+        name: "docker-agent"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 2
+        mode: NORMAL
+        retentionStrategy: "always"
+        launcher:
+          ssh:
+            host: "docker-agent"
+            port: 22
+            credentialsId: "docker-agent-ssh"
+            maxNumRetries: 3
+            retryWaitTime: 15
+            sshHostKeyVerificationStrategy: "nonVerifyingKeyVerificationStrategy"
+
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "/usr/bin/git"
+  
+  nodejs:
+    installations:
+      - name: "NodeJS 18"
+        properties:
+          - installSource:
+              installers:
+                - nodeJSInstaller:
+                    id: "18.17.0"
+                    npmPackagesRefreshHours: 72
+  
+  dockerTool:
+    installations:
+      - name: "docker"
+        home: "/usr/bin/docker"
+  
+  terraform:
+    installations:
+      - name: "terraform"
+        home: "/usr/local/bin/terraform"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "docker-registry"
+              username: "admin"
+              password: "${DOCKER_REGISTRY_PASSWORD:-admin}"
+              description: "Docker Registry Credentials"
+          
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "docker-agent-ssh"
+              username: "jenkins"
+              privateKeySource:
+                directEntry:
+                  privateKey: "${SSH_PRIVATE_KEY}"
+              description: "SSH key for Docker agent"
+          
+          - string:
+              scope: GLOBAL
+              id: "slack-token"
+              secret: "${SLACK_TOKEN}"
+              description: "Slack notification token"
+
+unclassified:
+  location:
+    url: "http://jenkins:8080/"
+    adminAddress: "admin@devops-practice.local"
+  
+  globalLibraries:
+    libraries:
+      - name: "devops-practice-lib"
+        defaultVersion: "main"
+        retriever:
+          modernSCM:
+            scm:
+              git:
+                remote: "https://github.com/devops-practice/jenkins-shared-library.git"
+  
+  slackNotifier:
+    teamDomain: "devops-practice"
+    token: "${SLACK_TOKEN}"
+    room: "#devops-alerts"
+  
+  timestamper:
+    allPipelines: true
+  
+  buildDiscarders:
+    configuredBuildDiscarders:
+      - "jobBuildDiscarder"
+      - defaultBuildDiscarder:
+          discarder:
+            logRotator:
+              daysToKeepStr: "30"
+              numToKeepStr: "50"
+              artifactDaysToKeepStr: "7"
+              artifactNumToKeepStr: "10"
+
+jobs:
+  - script: |
+      multibranchPipelineJob('devops-practice-pipeline') {
+          displayName('DevOps Practice Environment Pipeline')
+          description('Multi-branch pipeline for the DevOps Practice Environment')
+          
+          branchSources {
+              git {
+                  id('devops-practice-repo')
+                  remote('https://github.com/devops-practice/environment.git')
+                  credentialsId('github-credentials')
+                  includes('main develop feature/* release/* hotfix/*')
+              }
+          }
+          
+          factory {
+              workflowBranchProjectFactory {
+                  scriptPath('Jenkinsfile')
+              }
+          }
+          
+          triggers {
+              periodicFolderTrigger {
+                  interval('1h')
+              }
+          }
+          
+          orphanedItemStrategy {
+              discardOldItems {
+                  daysToKeep(7)
+                  numToKeep(20)
+              }
+          }
+      }
+  
+  - script: |
+      pipelineJob('infrastructure-deployment') {
+          displayName('Infrastructure Deployment')
+          description('Deploy infrastructure using Terraform')
+          
+          parameters {
+              choiceParam('ENVIRONMENT', ['dev', 'staging', 'prod'], 'Target environment')
+              choiceParam('ACTION', ['plan', 'apply', 'destroy'], 'Terraform action')
+              booleanParam('AUTO_APPROVE', false, 'Auto-approve Terraform changes')
+          }
+          
+          definition {
+              cps {
+                  script('''
+                      pipeline {
+                          agent any
+                          
+                          stages {
+                              stage('Terraform') {
+                                  steps {
+                                      dir('terraform') {
+                                          sh """
+                                              terraform init
+                                              terraform ${params.ACTION} -var-file="environments/${params.ENVIRONMENT}.tfvars" ${params.AUTO_APPROVE ? '-auto-approve' : ''}
+                                          """
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  ''')
+                  sandbox()
+              }
+          }
+      }
+  
+  - script: |
+      pipelineJob('ansible-configuration') {
+          displayName('Ansible Configuration')
+          description('Configure services using Ansible')
+          
+          parameters {
+              choiceParam('ENVIRONMENT', ['dev', 'staging', 'prod'], 'Target environment')
+              choiceParam('PLAYBOOK', ['site.yml', 'deploy.yml', 'maintenance.yml'], 'Ansible playbook')
+              stringParam('EXTRA_VARS', '', 'Extra variables (key=value format)')
+          }
+          
+          definition {
+              cps {
+                  script('''
+                      pipeline {
+                          agent any
+                          
+                          stages {
+                              stage('Ansible') {
+                                  steps {
+                                      dir('ansible') {
+                                          sh """
+                                              ansible-playbook -i inventories/${params.ENVIRONMENT}/hosts.yml playbooks/${params.PLAYBOOK} ${params.EXTRA_VARS ? '--extra-vars "' + params.EXTRA_VARS + '"' : ''}
+                                          """
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  ''')
+                  sandbox()
+              }
+          }
+      }
