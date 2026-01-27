@@ -1,0 +1,42 @@
+# Application server configuration tasks
+---
+- name: Create application directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: appuser
+    group: appuser
+    mode: '0755'
+  loop:
+    - /opt/app
+    - /opt/app/config
+    - /opt/app/logs
+    - /var/log/devops-practice
+
+- name: Configure application environment
+  template:
+    src: app.env.j2
+    dest: /opt/app/config/app.env
+    owner: appuser
+    group: appuser
+    mode: '0640'
+
+- name: Set up application logging
+  template:
+    src: logging.conf.j2
+    dest: /opt/app/config/logging.conf
+    owner: appuser
+    group: appuser
+    mode: '0644'
+
+- name: Configure health check script
+  template:
+    src: health-check.sh.j2
+    dest: /usr/local/bin/app-health-check
+    mode: '0755'
+
+- name: Set up service monitoring
+  template:
+    src: service-monitor.sh.j2
+    dest: /usr/local/bin/service-monitor
+    mode: '0755'

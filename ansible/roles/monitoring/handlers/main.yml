@@ -1,0 +1,19 @@
+# Monitoring handlers
+---
+- name: restart prometheus
+  service:
+    name: prometheus
+    state: restarted
+  when: ansible_connection != "docker"
+
+- name: restart grafana
+  service:
+    name: grafana-server
+    state: restarted
+  when: ansible_connection != "docker"
+
+- name: restart jenkins
+  service:
+    name: jenkins
+    state: restarted
+  when: ansible_connection != "docker"

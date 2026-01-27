@@ -1,0 +1,29 @@
+# Main site playbook for DevOps Practice Environment
+---
+- name: Configure web servers
+  hosts: web_servers
+  become: yes
+  roles:
+    - common
+    - web_server
+
+- name: Configure application servers
+  hosts: app_servers
+  become: yes
+  roles:
+    - common
+    - app_server
+
+- name: Configure database servers
+  hosts: db_servers
+  become: yes
+  roles:
+    - common
+    - database
+
+- name: Configure monitoring services
+  hosts: monitoring
+  become: yes
+  roles:
+    - common
+    - monitoring

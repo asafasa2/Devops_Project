@@ -1,0 +1,16 @@
+#!/bin/bash
+# Health check script for application services
+
+SERVICE_PORT={{ service_port | default(8080) }}
+HEALTH_ENDPOINT="http://localhost:${SERVICE_PORT}/health"
+
+# Check if service is responding
+response=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_ENDPOINT" 2>/dev/null)
+
+if [ "$response" = "200" ]; then
+    echo "Service is healthy"
+    exit 0
+else
+    echo "Service is unhealthy (HTTP $response)"
+    exit 1
+fi

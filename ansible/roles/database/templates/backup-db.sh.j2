@@ -1,0 +1,48 @@
+#!/bin/bash
+# Database backup script
+
+BACKUP_DIR="/opt/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+DB_NAME="devops_practice"
+DB_USER="devops_user"
+
+# Create backup directory if it doesn't exist
+mkdir -p "$BACKUP_DIR"
+
+# PostgreSQL backup
+if command -v pg_dump >/dev/null 2>&1; then
+    echo "Creating PostgreSQL backup..."
+    pg_dump -h localhost -U "$DB_USER" -d "$DB_NAME" > "$BACKUP_DIR/postgres_backup_$DATE.sql"
+    
+    if [ $? -eq 0 ]; then
+        echo "PostgreSQL backup completed: $BACKUP_DIR/postgres_backup_$DATE.sql"
+        
+        # Compress the backup
+        gzip "$BACKUP_DIR/postgres_backup_$DATE.sql"
+        
+        # Remove backups older than 7 days
+        find "$BACKUP_DIR" -name "postgres_backup_*.sql.gz" -mtime +7 -delete
+    else
+        echo "PostgreSQL backup failed"
+        exit 1
+    fi
+fi
+
+# Redis backup (if Redis is running)
+if pgrep redis-server >/dev/null; then
+    echo "Creating Redis backup..."
+    redis-cli BGSAVE
+    
+    # Wait for background save to complete
+    while [ "$(redis-cli LASTSAVE)" = "$(redis-cli LASTSAVE)" ]; do
+        sleep 1
+    done
+    
+    cp /data/dump.rdb "$BACKUP_DIR/redis_backup_$DATE.rdb"
+    echo "Redis backup completed: $BACKUP_DIR/redis_backup_$DATE.rdb"
+    
+    # Remove Redis backups older than 7 days
+    find "$BACKUP_DIR" -name "redis_backup_*.rdb" -mtime +7 -delete
+fi
+
+echo "Backup process completed at $(date)"

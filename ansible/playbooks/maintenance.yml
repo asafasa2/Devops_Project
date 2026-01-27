@@ -1,0 +1,40 @@
+# Maintenance playbook for system updates and cleanup
+---
+- name: System maintenance tasks
+  hosts: all
+  become: yes
+  
+  tasks:
+    - name: Update package cache
+      package:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+      
+    - name: Clean up unused Docker images
+      docker_prune:
+        images: yes
+        images_filters:
+          dangling: false
+          
+    - name: Clean up unused Docker volumes
+      docker_prune:
+        volumes: yes
+        
+    - name: Check disk usage
+      shell: df -h
+      register: disk_usage
+      
+    - name: Display disk usage
+      debug:
+        var: disk_usage.stdout_lines
+        
+    - name: Rotate logs
+      logrotate:
+        path: /var/log/containers
+        options:
+          - daily
+          - rotate 7
+          - compress
+          - delaycompress
+          - missingok
+          - notifempty

@@ -1,0 +1,87 @@
+# DevOps Practice Environment .gitignore
+
+# Environment files with sensitive data
+.env.prod
+.env.staging
+.env.dev
+
+# Terraform state files
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+
+# Ansible vault files
+ansible/group_vars/*/vault.yml
+ansible/host_vars/*/vault.yml
+
+# Docker volumes and data
+volumes/
+data/
+
+# Logs
+logs/
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Jenkins
+jenkins_home/
+
+# Monitoring data
+grafana/data/
+prometheus/data/
+elasticsearch/data/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+ssl/

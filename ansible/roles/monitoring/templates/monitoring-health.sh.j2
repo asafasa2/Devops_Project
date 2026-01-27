@@ -1,0 +1,37 @@
+#!/bin/bash
+# Health check script for monitoring services
+
+check_service() {
+    local service_name=$1
+    local port=$2
+    local endpoint=${3:-"/"}
+    
+    echo "Checking $service_name on port $port..."
+    
+    response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$port$endpoint" 2>/dev/null)
+    
+    if [ "$response" = "200" ]; then
+        echo "✓ $service_name is healthy"
+        return 0
+    else
+        echo "✗ $service_name is unhealthy (HTTP $response)"
+        return 1
+    fi
+}
+
+# Check monitoring services based on hostname
+case "{{ ansible_host }}" in
+    *prometheus*)
+        check_service "Prometheus" 9090 "/-/healthy"
+        ;;
+    *grafana*)
+        check_service "Grafana" 3000 "/api/health"
+        ;;
+    *jenkins*)
+        check_service "Jenkins" 8080 "/login"
+        ;;
+    *)
+        echo "Unknown monitoring service: {{ ansible_host }}"
+        exit 1
+        ;;
+esac

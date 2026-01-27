@@ -1,0 +1,87 @@
+# Development environment Docker Compose override
+version: '3.8'
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: dev_password_2024
+    
+  redis:
+    ports:
+      - "6379:6379"
+
+  # Development-specific services
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: dev-api-gateway
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      LOG_LEVEL: debug
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./services/api-gateway:/app
+      - /app/node_modules
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  web-frontend:
+    build:
+      context: ./services/web-frontend
+      dockerfile: Dockerfile.dev
+    container_name: dev-web-frontend
+    environment:
+      NODE_ENV: development
+      REACT_APP_API_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./services/web-frontend:/app
+      - /app/node_modules
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Monitoring (minimal for dev)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dev-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dev-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring-network
+    restart: unless-stopped

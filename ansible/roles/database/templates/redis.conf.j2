@@ -1,0 +1,31 @@
+# Redis configuration
+bind 0.0.0.0
+port 6379
+timeout 0
+keepalive 300
+
+# Persistence
+save 900 1
+save 300 10
+save 60 10000
+
+rdbcompression yes
+rdbchecksum yes
+dbfilename dump.rdb
+dir /data
+
+# Logging
+loglevel notice
+logfile /var/log/redis/redis-server.log
+
+# Memory management
+maxmemory {{ redis_maxmemory | default('256mb') }}
+maxmemory-policy allkeys-lru
+
+# Security
+requirepass {{ redis_password | default('') }}
+
+# Append only file
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec

@@ -1,0 +1,39 @@
+# Deployment playbook for application updates
+---
+- name: Deploy application services
+  hosts: app_servers
+  become: yes
+  serial: "{{ app_replicas | default(1) }}"
+  max_fail_percentage: 0
+  
+  pre_tasks:
+    - name: Check service health before deployment
+      uri:
+        url: "http://{{ ansible_host }}:{{ service_port | default(8080) }}/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      failed_when: false
+      
+  tasks:
+    - name: Pull latest application image
+      docker_image:
+        name: "{{ app_image }}"
+        tag: "{{ app_version | default('latest') }}"
+        source: pull
+        
+    - name: Update application container
+      docker_container:
+        name: "{{ ansible_host }}"
+        image: "{{ app_image }}:{{ app_version | default('latest') }}"
+        state: started
+        restart: yes
+        
+  post_tasks:
+    - name: Wait for service to be healthy
+      uri:
+        url: "http://{{ ansible_host }}:{{ service_port | default(8080) }}/health"
+        method: GET
+        status_code: 200
+      retries: 30
+      delay: 10

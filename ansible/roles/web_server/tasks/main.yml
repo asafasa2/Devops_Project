@@ -1,0 +1,32 @@
+# Web server configuration tasks
+---
+- name: Configure Nginx for web frontend
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+  notify: restart nginx
+  when: ansible_connection != "docker"
+
+- name: Create web content directory
+  file:
+    path: /var/www/html
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Configure health check endpoint
+  copy:
+    content: |
+      #!/bin/bash
+      curl -f http://localhost:3000/health || exit 1
+    dest: /usr/local/bin/health-check
+    mode: '0755'
+
+- name: Set up log directory
+  file:
+    path: /var/log/nginx
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'

@@ -1,0 +1,10 @@
+# Grafana datasources configuration
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://{{ hostvars[groups['monitoring'] | select('match', '.*prometheus.*') | list | first]['ansible_host'] }}:9090
+    isDefault: true
+    editable: true

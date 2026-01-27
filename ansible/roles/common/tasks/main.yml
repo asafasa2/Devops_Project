@@ -1,0 +1,38 @@
+# Common tasks for all servers
+---
+- name: Ensure required packages are installed
+  package:
+    name:
+      - curl
+      - wget
+      - htop
+      - vim
+    state: present
+  when: ansible_connection != "docker"
+
+- name: Create application user
+  user:
+    name: appuser
+    system: yes
+    shell: /bin/bash
+    home: /opt/app
+    create_home: yes
+  when: ansible_connection != "docker"
+
+- name: Set timezone
+  timezone:
+    name: UTC
+  when: ansible_connection != "docker"
+
+- name: Configure log rotation
+  template:
+    src: logrotate.conf.j2
+    dest: /etc/logrotate.d/devops-practice
+  when: ansible_connection != "docker"
+
+- name: Ensure Docker is running (for container management)
+  service:
+    name: docker
+    state: started
+    enabled: yes
+  when: ansible_connection != "docker"

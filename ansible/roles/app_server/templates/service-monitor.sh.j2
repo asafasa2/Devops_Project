@@ -1,0 +1,26 @@
+#!/bin/bash
+# Service monitoring script
+
+SERVICE_NAME="{{ ansible_host }}"
+LOG_FILE="/var/log/devops-practice/${SERVICE_NAME}-monitor.log"
+
+# Function to log with timestamp
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Check service health
+if /usr/local/bin/app-health-check; then
+    log_message "Service $SERVICE_NAME is healthy"
+else
+    log_message "Service $SERVICE_NAME is unhealthy - attempting restart"
+    
+    # Attempt to restart the service container
+    docker restart "$SERVICE_NAME" 2>&1 >> "$LOG_FILE"
+    
+    if [ $? -eq 0 ]; then
+        log_message "Service $SERVICE_NAME restarted successfully"
+    else
+        log_message "Failed to restart service $SERVICE_NAME"
+    fi
+fi

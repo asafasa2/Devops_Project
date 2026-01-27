@@ -1,0 +1,59 @@
+-- Database initialization script for DevOps Practice Environment
+-- Create database and user
+CREATE DATABASE devops_practice;
+CREATE USER devops_user WITH ENCRYPTED PASSWORD '{{ db_password | default("default_password") }}';
+GRANT ALL PRIVILEGES ON DATABASE devops_practice TO devops_user;
+
+-- Connect to the new database
+\c devops_practice;
+
+-- Create tables for the learning platform
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    learning_progress JSONB DEFAULT '{}',
+    current_level VARCHAR(20) DEFAULT 'beginner',
+    total_points INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS learning_content (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    content_type VARCHAR(50) NOT NULL,
+    tool_category VARCHAR(50) NOT NULL,
+    difficulty_level VARCHAR(20) NOT NULL,
+    content_data JSONB NOT NULL,
+    prerequisites TEXT[],
+    estimated_duration INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS assessments (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    content_id INTEGER REFERENCES learning_content(id),
+    score INTEGER NOT NULL,
+    max_score INTEGER NOT NULL,
+    completion_time INTEGER,
+    answers JSONB,
+    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lab_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    lab_type VARCHAR(50) NOT NULL,
+    container_id VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'active',
+    start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    end_time TIMESTAMP,
+    lab_data JSONB
+);
+
+-- Grant permissions to the application user
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO devops_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO devops_user;

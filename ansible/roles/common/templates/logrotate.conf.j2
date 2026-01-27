@@ -1,0 +1,13 @@
+# Log rotation configuration for DevOps Practice Environment
+/var/log/devops-practice/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 appuser appuser
+    postrotate
+        /bin/kill -HUP `cat /var/run/rsyslogd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}

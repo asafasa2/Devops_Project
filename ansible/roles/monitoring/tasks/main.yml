@@ -1,0 +1,49 @@
+# Monitoring services configuration tasks
+---
+- name: Create monitoring directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ monitoring_user | default('root') }}"
+    group: "{{ monitoring_group | default('root') }}"
+    mode: '0755'
+  loop:
+    - /opt/monitoring
+    - /opt/monitoring/prometheus
+    - /opt/monitoring/grafana
+    - /var/log/monitoring
+
+- name: Configure Prometheus
+  template:
+    src: prometheus.yml.j2
+    dest: /opt/monitoring/prometheus/prometheus.yml
+    owner: nobody
+    group: nogroup
+    mode: '0644'
+  when: "'prometheus' in ansible_host"
+  notify: restart prometheus
+
+- name: Configure Grafana datasources
+  template:
+    src: grafana-datasources.yml.j2
+    dest: /opt/monitoring/grafana/datasources.yml
+    owner: grafana
+    group: grafana
+    mode: '0644'
+  when: "'grafana' in ansible_host"
+
+- name: Configure Jenkins
+  template:
+    src: jenkins.yaml.j2
+    dest: /var/jenkins_home/casc_configs/jenkins.yaml
+    owner: jenkins
+    group: jenkins
+    mode: '0644'
+  when: "'jenkins' in ansible_host"
+  notify: restart jenkins
+
+- name: Set up monitoring health checks
+  template:
+    src: monitoring-health.sh.j2
+    dest: /usr/local/bin/monitoring-health
+    mode: '0755'

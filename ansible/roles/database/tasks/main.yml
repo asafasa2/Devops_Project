@@ -1,0 +1,60 @@
+# Database server configuration tasks
+---
+- name: Create database directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0700'
+  loop:
+    - /var/lib/postgresql/data
+    - /var/log/postgresql
+    - /opt/db-scripts
+  when: "'postgres' in ansible_host"
+
+- name: Configure PostgreSQL
+  template:
+    src: postgresql.conf.j2
+    dest: /var/lib/postgresql/data/postgresql.conf
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: "'postgres' in ansible_host"
+  notify: restart postgresql
+
+- name: Configure PostgreSQL authentication
+  template:
+    src: pg_hba.conf.j2
+    dest: /var/lib/postgresql/data/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: "'postgres' in ansible_host"
+  notify: restart postgresql
+
+- name: Create database initialization script
+  template:
+    src: init-db.sql.j2
+    dest: /opt/db-scripts/init-db.sql
+    owner: postgres
+    group: postgres
+    mode: '0644'
+  when: "'postgres' in ansible_host"
+
+- name: Configure Redis (if applicable)
+  template:
+    src: redis.conf.j2
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: '0640'
+  when: "'redis' in ansible_host"
+  notify: restart redis
+
+- name: Set up database backup script
+  template:
+    src: backup-db.sh.j2
+    dest: /usr/local/bin/backup-db
+    mode: '0755'
+  when: "'postgres' in ansible_host"

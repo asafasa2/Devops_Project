@@ -1,0 +1,13 @@
+# Database handlers
+---
+- name: restart postgresql
+  service:
+    name: postgresql
+    state: restarted
+  when: ansible_connection != "docker"
+
+- name: restart redis
+  service:
+    name: redis
+    state: restarted
+  when: ansible_connection != "docker"

@@ -1,0 +1,20 @@
+# Logging configuration
+{
+  "level": "{{ log_level | default('info') }}",
+  "format": "json",
+  "timestamp": true,
+  "colorize": false,
+  "transports": [
+    {
+      "type": "file",
+      "filename": "/var/log/devops-practice/{{ ansible_host }}.log",
+      "maxsize": "10MB",
+      "maxFiles": 5,
+      "tailable": true
+    },
+    {
+      "type": "console",
+      "level": "{{ console_log_level | default('warn') }}"
+    }
+  ]
+}
