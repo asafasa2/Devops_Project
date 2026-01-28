@@ -5,9 +5,8 @@ network.host: 0.0.0.0
 http.port: 9200
 discovery.type: single-node
 
-# Security settings
+# Security settings - disabled for development
 xpack.security.enabled: false
-xpack.security.enrollment.enabled: false
 
 # Memory settings
 bootstrap.memory_lock: false
@@ -15,9 +14,3 @@ bootstrap.memory_lock: false
 # Path settings
 path.data: /usr/share/elasticsearch/data
 path.logs: /usr/share/elasticsearch/logs
-
-# Index settings
-action.auto_create_index: "+*"
-
-# Logging
-logger.org.elasticsearch.deprecation: warn

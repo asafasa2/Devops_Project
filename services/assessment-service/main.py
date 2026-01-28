@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 # Database setup
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@postgres:5432/devops_learning")
+DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://{os.getenv('DB_USER', 'devops_user')}:{os.getenv('DB_PASSWORD', 'dev_password_2024')}@{os.getenv('DB_HOST', 'postgres')}:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_NAME', 'devops_practice')}")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

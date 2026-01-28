@@ -13,7 +13,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://user:password@postgres:5432/devops_learning')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', f"postgresql://{os.getenv('DB_USER', 'devops_user')}:{os.getenv('DB_PASSWORD', 'dev_password_2024')}@{os.getenv('DB_HOST', 'postgres')}:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_NAME', 'devops_practice')}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET', 'default-jwt-secret')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)

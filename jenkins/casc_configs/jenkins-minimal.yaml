@@ -1,0 +1,27 @@
+# Minimal Jenkins Configuration as Code
+jenkins:
+  systemMessage: "DevOps Practice Environment - CI/CD Pipeline"
+  numExecutors: 2
+  mode: NORMAL
+  
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: admin
+          password: admin123
+          properties:
+            - "hudson.model.MyViewsProperty"
+            - "hudson.search.UserSearchProperty"
+            - "jenkins.security.ApiTokenProperty"
+  
+  authorizationStrategy:
+    globalMatrix:
+      permissions:
+        - "Overall/Administer:admin"
+        - "Overall/Read:authenticated"
+
+unclassified:
+  location:
+    url: "http://jenkins:8080/"
+    adminAddress: "admin@devops-practice.local"

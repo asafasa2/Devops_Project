@@ -1,0 +1,25 @@
+# Simplified Jenkins configuration for testing
+services:
+  jenkins-simple:
+    image: jenkins/jenkins:2.479.1-lts
+    container_name: jenkins-simple-test
+    environment:
+      JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Xmx512m
+      JENKINS_ADMIN_PASSWORD: admin123
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_simple_home:/var/jenkins_home
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    external: true
+    name: dev-app-network
+
+volumes:
+  jenkins_simple_home:
+    driver: local

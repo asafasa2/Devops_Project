@@ -1,5 +1,4 @@
 # Base Docker Compose configuration for DevOps Practice Environment
-version: '3.8'
 
 services:
   # Database Services
@@ -60,7 +59,9 @@ services:
 
   # Application Services
   api-gateway:
-    image: ${API_GATEWAY_IMAGE:-devops-practice/api-gateway}:${API_GATEWAY_TAG:-latest}
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
     container_name: ${ENVIRONMENT:-dev}-api-gateway
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -103,10 +104,14 @@ services:
           cpus: '0.25'
 
   learning-service:
-    image: ${LEARNING_SERVICE_IMAGE:-devops-practice/learning-service}:${LEARNING_SERVICE_TAG:-latest}
+    build:
+      context: ./services/learning-service
+      dockerfile: Dockerfile
     container_name: ${ENVIRONMENT:-dev}-learning-service
     environment:
       NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://devops_user:${DB_PASSWORD:-dev_password_2024}@postgres:5432/devops_practice
+      REDIS_URL: redis://redis:6379
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: devops_practice
@@ -115,6 +120,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_2024}
       PORT: 4001
     ports:
       - "${LEARNING_SERVICE_PORT:-4001}:4001"
@@ -146,10 +152,13 @@ services:
           cpus: '0.25'
 
   user-service:
-    image: ${USER_SERVICE_IMAGE:-devops-practice/user-service}:${USER_SERVICE_TAG:-latest}
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
     container_name: ${ENVIRONMENT:-dev}-user-service
     environment:
       FLASK_ENV: ${FLASK_ENV:-development}
+      DATABASE_URL: postgresql://devops_user:${DB_PASSWORD:-dev_password_2024}@postgres:5432/devops_practice
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: devops_practice
@@ -189,10 +198,13 @@ services:
           cpus: '0.25'
 
   assessment-service:
-    image: ${ASSESSMENT_SERVICE_IMAGE:-devops-practice/assessment-service}:${ASSESSMENT_SERVICE_TAG:-latest}
+    build:
+      context: ./services/assessment-service
+      dockerfile: Dockerfile
     container_name: ${ENVIRONMENT:-dev}-assessment-service
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql://devops_user:${DB_PASSWORD:-dev_password_2024}@postgres:5432/devops_practice
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: devops_practice
@@ -200,6 +212,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_2024}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       PORT: 4004
     ports:
@@ -231,7 +244,9 @@ services:
           cpus: '0.25'
 
   lab-service:
-    image: ${LAB_SERVICE_IMAGE:-devops-practice/lab-service}:${LAB_SERVICE_TAG:-latest}
+    build:
+      context: ./services/lab-service
+      dockerfile: Dockerfile
     container_name: ${ENVIRONMENT:-dev}-lab-service
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-development}
@@ -276,7 +291,9 @@ services:
           cpus: '0.5'
 
   frontend:
-    image: ${FRONTEND_IMAGE:-devops-practice/frontend}:${FRONTEND_TAG:-latest}
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
     container_name: ${ENVIRONMENT:-dev}-frontend
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -405,7 +422,7 @@ services:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: ${ENVIRONMENT:-dev}-cadvisor
     ports:
-      - "8080:8080"
+      - "8083:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
@@ -473,29 +490,27 @@ services:
 
   # ELK Stack for Logging
   elasticsearch:
-    image: elasticsearch:8.8.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.15
     container_name: ${ENVIRONMENT:-dev}-elasticsearch
     ports:
       - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - ./monitoring/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
-      - elasticsearch_data:/usr/share/elasticsearch/data
     environment:
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
       - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
       - monitoring-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   logstash:
-    image: logstash:8.8.0
+    image: logstash:7.17.15
     container_name: ${ENVIRONMENT:-dev}-logstash
     ports:
       - "5044:5044"
@@ -521,12 +536,16 @@ services:
       retries: 3
 
   kibana:
-    image: kibana:8.8.0
+    image: kibana:7.17.15
     container_name: ${ENVIRONMENT:-dev}-kibana
     ports:
       - "5601:5601"
     volumes:
       - ./monitoring/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      XPACK_SECURITY_ENABLED: false
+      XPACK_MONITORING_UI_CONTAINER_ELASTICSEARCH_ENABLED: true
     networks:
       - monitoring-network
     depends_on:
@@ -539,7 +558,7 @@ services:
       retries: 3
 
   filebeat:
-    image: elastic/filebeat:8.8.0
+    image: elastic/filebeat:7.17.15
     container_name: ${ENVIRONMENT:-dev}-filebeat
     user: root
     volumes:
@@ -556,24 +575,16 @@ services:
 
   # CI/CD Services
   jenkins:
-    build:
-      context: ./jenkins
-      dockerfile: Dockerfile
+    image: jenkins/jenkins:2.479.1-lts
     container_name: ${ENVIRONMENT:-dev}-jenkins
     environment:
       JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Xmx512m
-      CASC_JENKINS_CONFIG: /var/jenkins_home/casc_configs
-      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin123}
-      JENKINS_DEV_PASSWORD: ${JENKINS_DEV_PASSWORD:-dev123}
-      DOCKER_REGISTRY_PASSWORD: ${DOCKER_REGISTRY_PASSWORD:-admin}
-      SLACK_TOKEN: ${SLACK_TOKEN:-}
-      SSH_PRIVATE_KEY: ${SSH_PRIVATE_KEY:-}
+      JENKINS_ADMIN_PASSWORD: admin123
     ports:
       - "8080:8080"
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      - ./jenkins/casc_configs:/var/jenkins_home/casc_configs:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/workspace:ro
     networks:

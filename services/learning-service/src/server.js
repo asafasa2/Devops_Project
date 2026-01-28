@@ -17,7 +17,7 @@ app.use(express.json());
 
 // Database connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://user:password@postgres:5432/devops_learning',
+  connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'devops_user'}:${process.env.DB_PASSWORD || 'dev_password_2024'}@${process.env.DB_HOST || 'postgres'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'devops_practice'}`,
 });
 
 // Redis connection
