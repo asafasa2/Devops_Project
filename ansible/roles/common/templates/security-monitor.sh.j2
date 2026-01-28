@@ -1,0 +1,44 @@
+#!/bin/bash
+# Security monitoring script for {{ ansible_host }}
+
+LOG_FILE="/var/log/security-monitor.log"
+ALERT_EMAIL="{{ notification_email | default('admin@localhost') }}"
+
+# Function to log messages
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Check for failed login attempts
+check_failed_logins() {
+    FAILED_LOGINS=$(grep "Failed password" /var/log/auth.log | tail -10 | wc -l)
+    if [ "$FAILED_LOGINS" -gt 5 ]; then
+        log_message "WARNING: $FAILED_LOGINS failed login attempts detected"
+        echo "Multiple failed login attempts detected on {{ ansible_host }}" | mail -s "Security Alert" "$ALERT_EMAIL"
+    fi
+}
+
+# Check for unusual network connections
+check_network_connections() {
+    CONNECTIONS=$(netstat -an | grep ESTABLISHED | wc -l)
+    if [ "$CONNECTIONS" -gt 100 ]; then
+        log_message "WARNING: High number of network connections: $CONNECTIONS"
+    fi
+}
+
+# Check for suspicious processes
+check_processes() {
+    ps aux | grep -E "(nc|netcat|nmap|tcpdump)" | grep -v grep > /tmp/suspicious_processes
+    if [ -s /tmp/suspicious_processes ]; then
+        log_message "WARNING: Suspicious processes detected"
+        cat /tmp/suspicious_processes >> "$LOG_FILE"
+    fi
+    rm -f /tmp/suspicious_processes
+}
+
+# Main execution
+log_message "Starting security monitoring check"
+check_failed_logins
+check_network_connections
+check_processes
+log_message "Security monitoring check completed"

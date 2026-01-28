@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansible Command Simulator</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            margin: 0;
+            padding: 20px;
+        }
+        .terminal {
+            background-color: #000;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 400px;
+        }
+        .prompt {
+            color: #00ff00;
+        }
+        .command {
+            color: #ffffff;
+        }
+        .output {
+            color: #ffff00;
+            margin: 10px 0;
+        }
+        .error {
+            color: #ff0000;
+        }
+        .success {
+            color: #00ff00;
+        }
+        input[type="text"] {
+            background-color: transparent;
+            border: none;
+            color: #ffffff;
+            font-family: inherit;
+            font-size: inherit;
+            outline: none;
+            width: 80%;
+        }
+        .exercise {
+            background-color: #2d2d30;
+            border-left: 4px solid #007acc;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .hint {
+            background-color: #3c3c3c;
+            border-left: 4px solid #ffa500;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+        .solution {
+            background-color: #1e3a1e;
+            border-left: 4px solid #00ff00;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+        button {
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #005a9e;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ansible Command Simulator</h1>
+    <p>Practice Ansible commands in this interactive simulator. Type commands and see the expected output.</p>
+
+    <div class="exercise">
+        <h3>Exercise 1: Basic Inventory Commands</h3>
+        <p>Learn how to work with Ansible inventory files and list hosts.</p>
+        
+        <div class="terminal" id="terminal1">
+            <div class="prompt">ansible@control:~$ <input type="text" id="command1" placeholder="Type your command here..." onkeypress="handleCommand(event, 1)"></div>
+            <div id="output1"></div>
+        </div>
+        
+        <div class="hint">
+            <strong>Hint:</strong> Try using <code>ansible --help</code> to see available options, or <code>ansible all --list-hosts</code> to list all hosts.
+        </div>
+        
+        <button onclick="showSolution(1)">Show Solution</button>
+        <div class="solution" id="solution1">
+            <strong>Solution:</strong><br>
+            <code>ansible all --list-hosts</code> - Lists all hosts in inventory<br>
+            <code>ansible webservers --list-hosts</code> - Lists hosts in webservers group<br>
+            <code>ansible-inventory --graph</code> - Shows inventory structure as a graph
+        </div>
+    </div>
+
+    <div class="exercise">
+        <h3>Exercise 2: Ad-hoc Commands</h3>
+        <p>Practice running ad-hoc commands to gather information and perform simple tasks.</p>
+        
+        <div class="terminal" id="terminal2">
+            <div class="prompt">ansible@control:~$ <input type="text" id="command2" placeholder="Type your command here..." onkeypress="handleCommand(event, 2)"></div>
+            <div id="output2"></div>
+        </div>
+        
+        <div class="hint">
+            <strong>Hint:</strong> Use the ping module to test connectivity: <code>ansible all -m ping</code>
+        </div>
+        
+        <button onclick="showSolution(2)">Show Solution</button>
+        <div class="solution" id="solution2">
+            <strong>Solution:</strong><br>
+            <code>ansible all -m ping</code> - Test connectivity to all hosts<br>
+            <code>ansible all -m setup</code> - Gather facts from all hosts<br>
+            <code>ansible webservers -m service -a "name=nginx state=started"</code> - Check nginx service status
+        </div>
+    </div>
+
+    <div class="exercise">
+        <h3>Exercise 3: Playbook Commands</h3>
+        <p>Learn how to run and validate Ansible playbooks.</p>
+        
+        <div class="terminal" id="terminal3">
+            <div class="prompt">ansible@control:~$ <input type="text" id="command3" placeholder="Type your command here..." onkeypress="handleCommand(event, 3)"></div>
+            <div id="output3"></div>
+        </div>
+        
+        <div class="hint">
+            <strong>Hint:</strong> Use <code>ansible-playbook --syntax-check playbook.yml</code> to validate syntax.
+        </div>
+        
+        <button onclick="showSolution(3)">Show Solution</button>
+        <div class="solution" id="solution3">
+            <strong>Solution:</strong><br>
+            <code>ansible-playbook --syntax-check site.yml</code> - Check playbook syntax<br>
+            <code>ansible-playbook site.yml --check</code> - Dry run (check mode)<br>
+            <code>ansible-playbook site.yml</code> - Execute playbook<br>
+            <code>ansible-playbook site.yml --tags webserver</code> - Run only webserver tasks
+        </div>
+    </div>
+
+    <script>
+        const commands = {
+            1: {
+                'ansible --help': 'usage: ansible [-h] [--version] [-v] [-b] [--become-method BECOME_METHOD]\n                [--become-user BECOME_USER] [-K] [-i INVENTORY] [--list-hosts]\n                [-l SUBSET] [-P POLL_INTERVAL] [-B SECONDS] [-o] [-t TREE] [-k]\n                [--private-key PRIVATE_KEY_FILE] [-u REMOTE_USER]\n                [-c CONNECTION] [-T TIMEOUT] [--ssh-common-args SSH_COMMON_ARGS]\n                [--sftp-extra-args SFTP_EXTRA_ARGS]\n                [--scp-extra-args SCP_EXTRA_ARGS]\n                [--ssh-extra-args SSH_EXTRA_ARGS] [-C] [--syntax-check] [-D]\n                [-e EXTRA_VARS] [--vault-id VAULT_IDS]\n                [--ask-vault-pass | --vault-password-file VAULT_PASSWORD_FILES]\n                [-f FORKS] [-M MODULE_PATH] [--playbook-dir BASEDIR]\n                [-a MODULE_ARGS] [-m MODULE_NAME]\n                pattern',
+                'ansible all --list-hosts': '  hosts (3):\n    web-server-1\n    web-server-2\n    db-server-1',
+                'ansible webservers --list-hosts': '  hosts (2):\n    web-server-1\n    web-server-2',
+                'ansible-inventory --graph': '@all:\n  |--@databases:\n  |  |--db-server-1\n  |--@production:\n  |  |--@databases:\n  |  |  |--db-server-1\n  |  |--@webservers:\n  |  |  |--web-server-1\n  |  |  |--web-server-2\n  |--@webservers:\n  |  |--web-server-1\n  |  |--web-server-2\n  |--@ungrouped:'
+            },
+            2: {
+                'ansible all -m ping': 'web-server-1 | SUCCESS => {\n    "ansible_facts": {\n        "discovered_interpreter_python": "/usr/bin/python3"\n    },\n    "changed": false,\n    "ping": "pong"\n}\nweb-server-2 | SUCCESS => {\n    "ansible_facts": {\n        "discovered_interpreter_python": "/usr/bin/python3"\n    },\n    "changed": false,\n    "ping": "pong"\n}\ndb-server-1 | SUCCESS => {\n    "ansible_facts": {\n        "discovered_interpreter_python": "/usr/bin/python3"\n    },\n    "changed": false,\n    "ping": "pong"\n}',
+                'ansible all -m setup': 'web-server-1 | SUCCESS => {\n    "ansible_facts": {\n        "ansible_all_ipv4_addresses": [\n            "172.20.0.2"\n        ],\n        "ansible_architecture": "x86_64",\n        "ansible_distribution": "Ubuntu",\n        "ansible_distribution_version": "20.04",\n        "ansible_hostname": "web-server-1",\n        "ansible_os_family": "Debian"\n    },\n    "changed": false\n}\n[Additional output truncated...]',
+                'ansible webservers -m service -a "name=nginx state=started"': 'web-server-1 | SUCCESS => {\n    "changed": false,\n    "name": "nginx",\n    "state": "started",\n    "status": {\n        "ActiveState": "active",\n        "LoadState": "loaded",\n        "SubState": "running"\n    }\n}\nweb-server-2 | SUCCESS => {\n    "changed": false,\n    "name": "nginx",\n    "state": "started",\n    "status": {\n        "ActiveState": "active",\n        "LoadState": "loaded",\n        "SubState": "running"\n    }\n}'
+            },
+            3: {
+                'ansible-playbook --syntax-check site.yml': 'playbook: site.yml',
+                'ansible-playbook site.yml --check': 'PLAY [Configure web servers] **************************************************\n\nTASK [Gathering Facts] *******************************************************\nok: [web-server-1]\nok: [web-server-2]\n\nTASK [Install nginx] *********************************************************\nchanged: [web-server-1]\nchanged: [web-server-2]\n\nPLAY RECAP ******************************************************************\nweb-server-1               : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0\nweb-server-2               : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0',
+                'ansible-playbook site.yml': 'PLAY [Configure web servers] **************************************************\n\nTASK [Gathering Facts] *******************************************************\nok: [web-server-1]\nok: [web-server-2]\n\nTASK [Install nginx] *********************************************************\nchanged: [web-server-1]\nchanged: [web-server-2]\n\nRUNNING HANDLER [restart nginx] ***********************************************\nchanged: [web-server-1]\nchanged: [web-server-2]\n\nPLAY RECAP ******************************************************************\nweb-server-1               : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0\nweb-server-2               : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0',
+                'ansible-playbook site.yml --tags webserver': 'PLAY [Configure web servers] **************************************************\n\nTASK [Gathering Facts] *******************************************************\nok: [web-server-1]\nok: [web-server-2]\n\nTASK [Install nginx] *********************************************************\nok: [web-server-1]\nok: [web-server-2]\n\nPLAY RECAP ******************************************************************\nweb-server-1               : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0\nweb-server-2               : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0'
+            }
+        };
+
+        function handleCommand(event, exerciseNum) {
+            if (event.key === 'Enter') {
+                const command = event.target.value.trim();
+                const output = document.getElementById(`output${exerciseNum}`);
+                
+                // Add command to output
+                const commandDiv = document.createElement('div');
+                commandDiv.innerHTML = `<span class="prompt">ansible@control:~$</span> <span class="command">${command}</span>`;
+                output.appendChild(commandDiv);
+                
+                // Add response
+                const responseDiv = document.createElement('div');
+                if (commands[exerciseNum] && commands[exerciseNum][command]) {
+                    responseDiv.innerHTML = `<span class="output">${commands[exerciseNum][command]}</span>`;
+                } else {
+                    responseDiv.innerHTML = `<span class="error">Command not recognized. Try one of the suggested commands or use --help for more options.</span>`;
+                }
+                output.appendChild(responseDiv);
+                
+                // Clear input and add new prompt
+                event.target.value = '';
+                const newPrompt = document.createElement('div');
+                newPrompt.innerHTML = `<span class="prompt">ansible@control:~$</span> <input type="text" placeholder="Type your command here..." onkeypress="handleCommand(event, ${exerciseNum})">`;
+                output.appendChild(newPrompt);
+                
+                // Focus on new input
+                const newInput = newPrompt.querySelector('input');
+                newInput.focus();
+                
+                // Scroll to bottom
+                output.scrollTop = output.scrollHeight;
+            }
+        }
+
+        function showSolution(exerciseNum) {
+            const solution = document.getElementById(`solution${exerciseNum}`);
+            solution.style.display = solution.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Focus on first input when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('command1').focus();
+        });
+    </script>
+</body>
+</html>

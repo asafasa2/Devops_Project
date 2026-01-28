@@ -1,0 +1,79 @@
+# Prometheus configuration for DevOps Practice Environment
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # API Gateway metrics
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:4000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Learning Service metrics
+  - job_name: 'learning-service'
+    static_configs:
+      - targets: ['learning-service:4001']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # User Service metrics
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:4002']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Lab Service metrics
+  - job_name: 'lab-service'
+    static_configs:
+      - targets: ['lab-service:4003']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 30s
+
+  # Assessment Service metrics
+  - job_name: 'assessment-service'
+    static_configs:
+      - targets: ['assessment-service:4004']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Database metrics
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Nginx metrics
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+
+  # Docker metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s

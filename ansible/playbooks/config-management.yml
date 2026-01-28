@@ -1,0 +1,81 @@
+# Configuration management for application settings
+---
+- name: Manage application configurations
+  hosts: all
+  gather_facts: yes
+  vars:
+    config_backup_dir: "/opt/config-backups"
+    
+  tasks:
+    - name: Create configuration backup directory
+      file:
+        path: "{{ config_backup_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Backup existing configurations
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ config_backup_dir }}/{{ ansible_host }}-{{ item.name }}-{{ ansible_date_time.epoch }}"
+        remote_src: yes
+      loop: "{{ config_files | default([]) }}"
+      when: config_files is defined
+      ignore_errors: yes
+      
+    - name: Generate application configuration files
+      template:
+        src: "{{ item.template }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ item.owner | default('root') }}"
+        group: "{{ item.group | default('root') }}"
+        mode: "{{ item.mode | default('0644') }}"
+        backup: yes
+      loop: "{{ config_templates | default([]) }}"
+      when: config_templates is defined
+      notify: restart container
+      
+    - name: Update environment variables in containers
+      docker_container:
+        name: "{{ ansible_host }}"
+        env: "{{ container_env | default({}) }}"
+        state: started
+        restart: "{{ restart_on_config_change | default(true) }}"
+      delegate_to: localhost
+      when: container_env is defined
+      
+    - name: Validate configuration syntax
+      command: "{{ item.validation_command }}"
+      loop: "{{ config_validations | default([]) }}"
+      when: config_validations is defined
+      register: validation_results
+      
+    - name: Display validation results
+      debug:
+        msg: "Configuration validation for {{ item.item.name }}: {{ 'PASSED' if item.rc == 0 else 'FAILED' }}"
+      loop: "{{ validation_results.results | default([]) }}"
+      when: validation_results is defined
+      
+    - name: Copy configuration files to containers
+      docker_container_exec:
+        container: "{{ ansible_host }}"
+        command: "cp {{ item.src }} {{ item.dest }}"
+      loop: "{{ container_config_files | default([]) }}"
+      when: container_config_files is defined
+      delegate_to: localhost
+      
+    - name: Reload application configuration
+      docker_container_exec:
+        container: "{{ ansible_host }}"
+        command: "{{ reload_command | default('kill -HUP 1') }}"
+      when: reload_command is defined and not (restart_on_config_change | default(true))
+      delegate_to: localhost
+      
+  handlers:
+    - name: restart container
+      docker_container:
+        name: "{{ ansible_host }}"
+        state: started
+        restart: yes
+      delegate_to: localhost

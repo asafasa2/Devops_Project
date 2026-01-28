@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansible Automation Learning Path</title>
+    <link rel="stylesheet" href="css/content-styles.css">
+    <link rel="stylesheet" href="css/navigation-styles.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ee0000 0%, #8b0000 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .page-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 40px 20px;
+        }
+        
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .ansible-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .module-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .module-selector h2 {
+            color: #ee0000;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .module-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .module-btn {
+            background: linear-gradient(135deg, #ee0000 0%, #8b0000 100%);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .module-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(238, 0, 0, 0.3);
+        }
+        
+        .module-btn.active {
+            background: linear-gradient(135deg, #8b0000 0%, #ee0000 100%);
+            box-shadow: 0 5px 15px rgba(238, 0, 0, 0.4);
+        }
+        
+        #content-display {
+            display: none;
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 25px;
+            transition: background 0.2s ease;
+        }
+        
+        .back-link:hover {
+            background: rgba(255,255,255,0.2);
+            text-decoration: none;
+        }
+    </style>
+    <script src="js/content-renderer.js"></script>
+    <script src="js/navigation-system.js"></script>
+</head>
+<body>
+    <div class="container">
+        <a href="learning-dashboard.html" class="back-link">← Back to Learning Dashboard</a>
+        
+        <div class="page-header">
+            <h1>🔧 Ansible Automation Learning Path</h1>
+            <p>Master configuration management and automation with Ansible playbooks, roles, and best practices</p>
+        </div>
+        
+        <div class="ansible-info">
+            <h3>🎯 Ansible Learning Path</h3>
+            <p>Learn configuration management, automation, and infrastructure orchestration with Ansible. This comprehensive path covers everything from basic playbooks to advanced role development and real-world deployment scenarios.</p>
+        </div>
+        
+        <div class="module-selector">
+            <h2>Select Learning Module</h2>
+            <div class="module-buttons">
+                <button class="module-btn" onclick="loadModule('Ansible Fundamentals: Introduction to Configuration Management')">
+                    📚 Module 1: Ansible Fundamentals
+                </button>
+                <button class="module-btn" onclick="loadModule('Ansible Installation and Environment Setup')">
+                    🛠️ Module 2: Installation & Setup
+                </button>
+                <button class="module-btn" onclick="loadModule('Ansible Inventory Management')">
+                    📋 Module 3: Inventory Management
+                </button>
+                <button class="module-btn" onclick="loadModule('Ansible Playbooks and Tasks')">
+                    📝 Module 4: Playbooks & Tasks
+                </button>
+                <button class="module-btn" onclick="loadModule('Ansible Roles: Organizing and Reusing Code')">
+                    🏗️ Module 5: Ansible Roles
+                </button>
+            </div>
+            
+            <div class="module-buttons">
+                <button class="module-btn" onclick="loadQuiz('Ansible Fundamentals Quiz')">
+                    📝 Quiz 1: Fundamentals
+                </button>
+                <button class="module-btn" onclick="loadQuiz('Ansible Inventory and Playbooks Quiz')">
+                    📝 Quiz 2: Inventory & Playbooks
+                </button>
+                <button class="module-btn" onclick="loadQuiz('Advanced Ansible Concepts Quiz')">
+                    📝 Quiz 3: Advanced Concepts
+                </button>
+                <button class="module-btn" onclick="loadLab('Ansible Setup and Inventory Lab')">
+                    🧪 Lab: Setup & Inventory
+                </button>
+                <button class="module-btn" onclick="window.open('ansible/lab-environments/ansible-command-simulator.html', '_blank')">
+                    🖥️ Interactive Simulator
+                </button>
+            </div>
+        </div>
+        
+        <div id="content-display">
+            <!-- Dynamic content will be loaded here -->
+        </div>
+    </div>
+    
+    <script>
+        // Ansible learning content data (comprehensive database content)
+        const ansibleContent = {
+            'Ansible Fundamentals: Introduction to Configuration Management': {
+                title: 'Ansible Fundamentals: Introduction to Configuration Management',
+                content_type: 'module',
+                tool_category: 'ansible',
+                difficulty_level: 'beginner',
+                estimated_duration: 45,
+                content_data: {
+                    sections: [
+                        {
+                            title: "What is Configuration Management?",
+                            content: "Configuration management is the practice of handling changes systematically so that a system maintains its integrity over time. It ensures that systems are configured correctly and consistently across environments.",
+                            code_examples: [
+                                {
+                                    title: "Manual vs Automated Configuration",
+                                    description: "Compare manual server setup with automated configuration",
+                                    code: "# Manual approach (error-prone, time-consuming)\nssh server1\nsudo apt update\nsudo apt install nginx\nsudo systemctl enable nginx\n\n# Automated approach with Ansible\n- name: Install and start nginx\n  apt:\n    name: nginx\n    state: present\n  become: yes\n- name: Start nginx service\n  systemd:\n    name: nginx\n    state: started\n    enabled: yes\n  become: yes"
+                                }
+                            ]
+                        },
+                        {
+                            title: "Introduction to Ansible",
+                            content: "Ansible is an open-source automation tool that uses SSH to connect to servers and run commands. It uses a declarative language to describe system configuration and is agentless, meaning no software needs to be installed on managed nodes.",
+                            key_concepts: [
+                                "Agentless architecture",
+                                "SSH-based communication", 
+                                "YAML-based playbooks",
+                                "Idempotent operations",
+                                "Push-based model"
+                            ]
+                        },
+                        {
+                            title: "Ansible Architecture",
+                            content: "Ansible consists of a control node (where Ansible is installed) and managed nodes (target servers). The control node connects to managed nodes via SSH and executes tasks defined in playbooks.",
+                            key_concepts: [
+                                "Control Node: Where Ansible is installed and playbooks are executed",
+                                "Managed Nodes: Target servers that Ansible configures",
+                                "SSH Communication: Secure connection method",
+                                "No Agent Required: Simplifies deployment and maintenance"
+                            ]
+                        },
+                        {
+                            title: "Key Ansible Components",
+                            content: "Understanding the core components of Ansible is essential for effective automation.",
+                            components: [
+                                {
+                                    name: "Inventory",
+                                    description: "List of managed nodes (servers) that Ansible will configure"
+                                },
+                                {
+                                    name: "Playbooks", 
+                                    description: "YAML files containing automation instructions"
+                                },
+                                {
+                                    name: "Tasks",
+                                    description: "Individual units of work within playbooks"
+                                },
+                                {
+                                    name: "Modules",
+                                    description: "Reusable units of code that perform specific actions"
+                                },
+                                {
+                                    name: "Roles",
+                                    description: "Organized collections of tasks, variables, and files"
+                                }
+                            ]
+                        }
+                    ],
+                    objectives: [
+                        "Understand configuration management principles",
+                        "Learn Ansible architecture and components", 
+                        "Recognize benefits of automation",
+                        "Identify use cases for Ansible"
+                    ],
+                    interactive_elements: [
+                        {
+                            type: "knowledge_check",
+                            question: "What makes Ansible agentless?",
+                            options: ["Uses SSH", "No software on managed nodes", "Both A and B", "Uses HTTP"],
+                            correct: 2,
+                            explanation: "Ansible is agentless because it uses SSH to connect to managed nodes without requiring any agent software to be installed on them."
+                        }
+                    ]
+                }
+            },
+            'Ansible Installation and Environment Setup': {
+                title: 'Ansible Installation and Environment Setup',
+                content_type: 'module',
+                tool_category: 'ansible',
+                difficulty_level: 'beginner',
+                estimated_duration: 30,
+                content_data: {
+                    sections: [
+                        {
+                            title: "Installing Ansible",
+                            content: "Ansible can be installed on most Unix-like systems. The control node requires Python and can be installed via package managers or pip.",
+                            installation_methods: [
+                                {
+                                    method: "Ubuntu/Debian",
+                                    commands: [
+                                        "sudo apt update",
+                                        "sudo apt install ansible"
+                                    ]
+                                },
+                                {
+                                    method: "CentOS/RHEL",
+                                    commands: [
+                                        "sudo yum install epel-release",
+                                        "sudo yum install ansible"
+                                    ]
+                                },
+                                {
+                                    method: "pip",
+                                    commands: [
+                                        "pip install ansible"
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            title: "Configuring SSH Access",
+                            content: "Ansible uses SSH for communication. Setting up passwordless SSH access improves security and automation.",
+                            code_examples: [
+                                {
+                                    title: "Generate SSH Key Pair",
+                                    description: "Create SSH keys for secure passwordless authentication",
+                                    code: "# Generate SSH key pair\nssh-keygen -t rsa -b 4096 -C \"ansible@control-node\"\n\n# Copy public key to managed nodes\nssh-copy-id user@managed-node-ip"
+                                },
+                                {
+                                    title: "Test SSH Connection",
+                                    description: "Verify passwordless SSH access to managed nodes",
+                                    code: "# Test passwordless SSH\nssh user@managed-node-ip\n\n# Should connect without password prompt"
+                                }
+                            ]
+                        },
+                        {
+                            title: "Ansible Configuration File",
+                            content: "The ansible.cfg file controls Ansible behavior. It can be placed in multiple locations with different precedence levels.",
+                            code_examples: [
+                                {
+                                    title: "Basic ansible.cfg",
+                                    description: "Essential configuration settings for Ansible",
+                                    code: "[defaults]\ninventory = ./inventory\nremote_user = ansible\nhost_key_checking = False\nretry_files_enabled = False\n\n[ssh_connection]\nssh_args = -o ControlMaster=auto -o ControlPersist=60s"
+                                }
+                            ]
+                        }
+                    ],
+                    objectives: [
+                        "Install Ansible on control node",
+                        "Configure SSH access to managed nodes",
+                        "Create and configure ansible.cfg",
+                        "Verify Ansible installation"
+                    ]
+                }
+            },
+            'Ansible Inventory Management': {
+                title: 'Ansible Inventory Management',
+                content_type: 'module',
+                tool_category: 'ansible',
+                difficulty_level: 'beginner',
+                estimated_duration: 40,
+                content_data: {
+                    sections: [
+                        {
+                            title: "Understanding Inventory",
+                            content: "Inventory defines the hosts and groups of hosts upon which commands, modules, and tasks in a playbook operate. It can be static (INI or YAML files) or dynamic (scripts or plugins).",
+                            key_concepts: [
+                                "INI format",
+                                "YAML format", 
+                                "Dynamic inventory scripts",
+                                "Inventory plugins"
+                            ]
+                        },
+                        {
+                            title: "Static Inventory - INI Format",
+                            content: "The INI format is simple and widely used for static inventories.",
+                            code_examples: [
+                                {
+                                    title: "Basic INI Inventory",
+                                    description: "Simple inventory with host groups",
+                                    code: "[webservers]\nweb1.example.com\nweb2.example.com\n\n[databases]\ndb1.example.com\ndb2.example.com\n\n[production:children]\nwebservers\ndatabases"
+                                },
+                                {
+                                    title: "Inventory with Variables",
+                                    description: "Adding host and group variables to inventory",
+                                    code: "[webservers]\nweb1.example.com ansible_host=192.168.1.10 ansible_user=ubuntu\nweb2.example.com ansible_host=192.168.1.11 ansible_user=ubuntu\n\n[webservers:vars]\nhttp_port=80\nmax_clients=200"
+                                }
+                            ]
+                        },
+                        {
+                            title: "Static Inventory - YAML Format", 
+                            content: "YAML format provides more structure and readability for complex inventories.",
+                            code_examples: [
+                                {
+                                    title: "YAML Inventory Structure",
+                                    description: "Structured inventory using YAML format",
+                                    code: "all:\n  children:\n    webservers:\n      hosts:\n        web1.example.com:\n          ansible_host: 192.168.1.10\n        web2.example.com:\n          ansible_host: 192.168.1.11\n      vars:\n        http_port: 80\n    databases:\n      hosts:\n        db1.example.com:\n          ansible_host: 192.168.1.20"
+                                }
+                            ]
+                        }
+                    ],
+                    objectives: [
+                        "Create and manage static inventories",
+                        "Understand inventory formats (INI and YAML)",
+                        "Use host and group variables",
+                        "Organize hosts into logical groups"
+                    ]
+                }
+            },
+            'Ansible Playbooks and Tasks': {
+                title: 'Ansible Playbooks and Tasks',
+                content_type: 'module',
+                tool_category: 'ansible',
+                difficulty_level: 'intermediate',
+                estimated_duration: 60,
+                content_data: {
+                    sections: [
+                        {
+                            title: "Introduction to Playbooks",
+                            content: "Playbooks are YAML files that define a series of tasks to be executed on managed nodes. They are the foundation of Ansible automation.",
+                            key_concepts: [
+                                "YAML syntax and structure",
+                                "Plays and tasks organization",
+                                "Idempotent operations",
+                                "Error handling and conditionals"
+                            ]
+                        },
+                        {
+                            title: "Basic Playbook Structure",
+                            content: "A playbook consists of one or more plays, each targeting specific hosts and containing tasks to execute.",
+                            code_examples: [
+                                {
+                                    title: "Simple Playbook",
+                                    description: "Basic playbook structure with common tasks",
+                                    code: "---\n- name: Configure web servers\n  hosts: webservers\n  become: yes\n  \n  tasks:\n    - name: Install nginx\n      apt:\n        name: nginx\n        state: present\n        update_cache: yes\n    \n    - name: Start nginx service\n      systemd:\n        name: nginx\n        state: started\n        enabled: yes\n    \n    - name: Copy index.html\n      copy:\n        content: '<h1>Hello from Ansible!</h1>'\n        dest: /var/www/html/index.html\n        owner: www-data\n        group: www-data\n        mode: '0644'"
+                                }
+                            ]
+                        },
+                        {
+                            title: "Working with Variables",
+                            content: "Variables make playbooks flexible and reusable by allowing dynamic values.",
+                            code_examples: [
+                                {
+                                    title: "Using Variables in Playbooks",
+                                    description: "Defining and using variables for flexible automation",
+                                    code: "---\n- name: Deploy application\n  hosts: webservers\n  vars:\n    app_name: myapp\n    app_version: 1.2.3\n    app_port: 8080\n  \n  tasks:\n    - name: Create application directory\n      file:\n        path: \"/opt/{{ app_name }}\"\n        state: directory\n        mode: '0755'\n    \n    - name: Download application\n      get_url:\n        url: \"https://releases.example.com/{{ app_name }}-{{ app_version }}.tar.gz\"\n        dest: \"/tmp/{{ app_name }}-{{ app_version }}.tar.gz\"\n    \n    - name: Configure firewall\n      ufw:\n        rule: allow\n        port: \"{{ app_port }}\"\n        proto: tcp"
+                                }
+                            ]
+                        }
+                    ],
+                    objectives: [
+                        "Write and structure Ansible playbooks",
+                        "Use variables for flexible automation",
+                        "Implement error handling and conditionals",
+                        "Execute playbooks against inventory"
+                    ],
+                    interactive_elements: [
+                        {
+                            type: "code_exercise",
+                            title: "Create Your First Playbook",
+                            description: "Write a playbook to install and configure a web server",
+                            template: "---\n- name: Configure web server\n  hosts: webservers\n  become: yes\n  \n  tasks:\n    # Add your tasks here",
+                            solution: "---\n- name: Configure web server\n  hosts: webservers\n  become: yes\n  \n  tasks:\n    - name: Install nginx\n      apt:\n        name: nginx\n        state: present\n    \n    - name: Start nginx\n      systemd:\n        name: nginx\n        state: started\n        enabled: yes"
+                        }
+                    ]
+                }
+            }
+        };
+        
+        let currentModule = null;
+        
+        function loadModule(moduleTitle) {
+            const moduleData = ansibleContent[moduleTitle];
+            if (!moduleData) {
+                alert(`Module "${moduleTitle}" content not found. This would normally load from the database.`);
+                return;
+            }
+            
+            // Update active button
+            document.querySelectorAll('.module-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show content display
+            const contentDisplay = document.getElementById('content-display');
+            contentDisplay.style.display = 'block';
+            
+            // Render module content
+            const renderedContent = window.contentRenderer.renderModule(moduleData);
+            contentDisplay.innerHTML = renderedContent;
+            
+            // Initialize navigation
+            window.navigationSystem.generateTOC(moduleData);
+            window.navigationSystem.showBreadcrumbs([
+                { title: 'Learning Dashboard', url: 'learning-dashboard.html' },
+                { title: 'Ansible Learning Path', url: 'learning-ansible.html' },
+                { title: moduleTitle, url: '#' }
+            ]);
+            
+            // Scroll to content
+            contentDisplay.scrollIntoView({ behavior: 'smooth' });
+            
+            // Re-initialize syntax highlighting
+            if (typeof Prism !== 'undefined') {
+                setTimeout(() => Prism.highlightAll(), 100);
+            }
+        }
+        
+        function loadQuiz(quizTitle) {
+            alert(`Quiz "${quizTitle}" would open in a new window or modal. This integrates with the existing quiz system.`);
+        }
+        
+        function loadLab(labTitle) {
+            alert(`Lab "${labTitle}" would launch the interactive lab environment. This integrates with the existing lab system.`);
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-load first module if specified in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const moduleParam = urlParams.get('module');
+            if (moduleParam && ansibleContent[moduleParam]) {
+                loadModule(moduleParam);
+            }
+        });
+    </script>
+</body>
+</html>

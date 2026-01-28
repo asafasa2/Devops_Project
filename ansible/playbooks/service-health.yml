@@ -1,0 +1,70 @@
+# Service health checking and restart procedures
+---
+- name: Check and manage service health
+  hosts: all
+  gather_facts: no
+  vars:
+    max_restart_attempts: 3
+    health_check_timeout: 30
+    
+  tasks:
+    - name: Check container status
+      docker_container_info:
+        name: "{{ ansible_host }}"
+      register: container_status
+      delegate_to: localhost
+      
+    - name: Display current container state
+      debug:
+        msg: "Container {{ ansible_host }} status: {{ container_status.container.State.Status if container_status.exists else 'Not found' }}"
+        
+    - name: Check service health endpoint
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        timeout: "{{ health_check_timeout }}"
+      register: health_response
+      failed_when: false
+      when: health_check_url is defined
+      
+    - name: Restart unhealthy containers
+      docker_container:
+        name: "{{ ansible_host }}"
+        state: started
+        restart: yes
+      delegate_to: localhost
+      when: >
+        (container_status.exists and container_status.container.State.Status != "running") or
+        (health_check_url is defined and health_response.status != 200)
+      register: restart_result
+      
+    - name: Wait for service recovery after restart
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+      retries: 10
+      delay: 5
+      when: restart_result is changed and health_check_url is defined
+      
+    - name: Log service restart
+      lineinfile:
+        path: /var/log/service-restarts.log
+        line: "{{ ansible_date_time.iso8601 }} - Restarted {{ ansible_host }} due to health check failure"
+        create: yes
+      delegate_to: localhost
+      when: restart_result is changed
+      
+    - name: Check container logs for errors
+      docker_container_info:
+        name: "{{ ansible_host }}"
+      register: container_logs
+      delegate_to: localhost
+      
+    - name: Display recent container logs on failure
+      debug:
+        msg: "Recent logs for {{ ansible_host }}: Check docker logs {{ ansible_host }}"
+      when: >
+        (health_check_url is defined and health_response.status != 200) or
+        (container_status.exists and container_status.container.State.Status != "running")

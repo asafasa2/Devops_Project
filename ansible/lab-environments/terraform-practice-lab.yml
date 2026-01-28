@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  # Terraform workspace container with all necessary tools
+  terraform-workspace:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.terraform-workspace
+    container_name: terraform-workspace
+    volumes:
+      - ./lab-files/terraform-exercises:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+      - terraform-cache:/root/.terraform.d
+    environment:
+      - TF_LOG=INFO
+      - TF_CLI_ARGS_init=-upgrade
+    networks:
+      - terraform-lab
+    depends_on:
+      - docker-daemon
+      - minio
+    working_dir: /workspace
+    command: tail -f /dev/null
+
+  # Docker-in-Docker for Terraform Docker provider
+  docker-daemon:
+    image: docker:24-dind
+    container_name: terraform-docker-daemon
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    volumes:
+      - docker-data:/var/lib/docker
+    networks:
+      - terraform-lab
+    ports:
+      - "2376:2376"
+
+  # MinIO for S3-compatible backend simulation
+  minio:
+    image: minio/minio:latest
+    container_name: terraform-minio
+    environment:
+      - MINIO_ROOT_USER=terraform
+      - MINIO_ROOT_PASSWORD=terraform123
+    volumes:
+      - minio-data:/data
+    networks:
+      - terraform-lab
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+
+  # MinIO client for bucket setup
+  minio-setup:
+    image: minio/mc:latest
+    container_name: terraform-minio-setup
+    depends_on:
+      - minio
+    networks:
+      - terraform-lab
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      /usr/bin/mc alias set myminio http://minio:9000 terraform terraform123;
+      /usr/bin/mc mb myminio/terraform-state;
+      /usr/bin/mc policy set public myminio/terraform-state;
+      exit 0;
+      "
+
+  # Terraform Cloud simulation (optional)
+  terraform-cloud-sim:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.terraform-cloud-sim
+    container_name: terraform-cloud-sim
+    networks:
+      - terraform-lab
+    ports:
+      - "8080:8080"
+    environment:
+      - TFC_TOKEN=demo-token-123
+    volumes:
+      - tfc-data:/app/data
+
+  # Web interface for lab exercises
+  terraform-lab-ui:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.terraform-lab-ui
+    container_name: terraform-lab-ui
+    networks:
+      - terraform-lab
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./lab-files:/app/lab-files:ro
+    environment:
+      - NODE_ENV=development
+      - LAB_TYPE=terraform
+
+networks:
+  terraform-lab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  terraform-cache:
+  docker-data:
+  minio-data:
+  tfc-data:

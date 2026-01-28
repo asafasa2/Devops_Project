@@ -1,0 +1,49 @@
+# Basic Playbook Exercise Solution
+# Complete solution for the web server configuration exercise
+
+---
+- name: Configure Web Servers
+  hosts: webservers
+  become: yes
+  
+  vars:
+    nginx_port: 80
+    server_name: "{{ inventory_hostname }}.example.com"
+    
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+        
+    - name: Start nginx service
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+      notify: restart nginx
+      
+    - name: Copy custom index page
+      copy:
+        content: |
+          <html>
+          <head><title>Welcome to {{ server_name }}</title></head>
+          <body>
+            <h1>Hello from {{ inventory_hostname }}</h1>
+            <p>This server is running nginx on port {{ nginx_port }}</p>
+            <p>Configured with Ansible automation!</p>
+          </body>
+          </html>
+        dest: /var/www/html/index.html
+      notify: restart nginx
+      
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

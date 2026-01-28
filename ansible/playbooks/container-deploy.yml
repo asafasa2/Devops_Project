@@ -1,0 +1,75 @@
+# Container deployment and configuration playbook
+---
+- name: Deploy and configure containers
+  hosts: all
+  gather_facts: yes
+  vars:
+    container_restart_policy: "unless-stopped"
+    health_check_retries: 30
+    health_check_delay: 10
+    
+  tasks:
+    - name: Ensure Docker is available
+      docker_info:
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Create container networks
+      docker_network:
+        name: "{{ item }}"
+        driver: bridge
+        state: present
+      loop:
+        - devops-practice-frontend
+        - devops-practice-backend
+        - devops-practice-database
+        - devops-practice-monitoring
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Pull required container images
+      docker_image:
+        name: "{{ container_image }}"
+        tag: "{{ container_tag | default('latest') }}"
+        source: pull
+      delegate_to: localhost
+      when: container_image is defined
+      
+    - name: Deploy application containers
+      docker_container:
+        name: "{{ ansible_host }}"
+        image: "{{ container_image }}:{{ container_tag | default('latest') }}"
+        state: started
+        restart_policy: "{{ container_restart_policy }}"
+        networks:
+          - name: "{{ container_network }}"
+        ports: "{{ container_ports | default([]) }}"
+        env: "{{ container_env | default({}) }}"
+        volumes: "{{ container_volumes | default([]) }}"
+        healthcheck:
+          test: "{{ health_check_command | default('CMD curl -f http://localhost:8080/health || exit 1') }}"
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 40s
+      delegate_to: localhost
+      when: container_image is defined
+      
+    - name: Wait for container health check
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+      retries: "{{ health_check_retries }}"
+      delay: "{{ health_check_delay }}"
+      when: health_check_url is defined
+      
+    - name: Verify container is running
+      docker_container_info:
+        name: "{{ ansible_host }}"
+      register: container_info
+      delegate_to: localhost
+      
+    - name: Display container status
+      debug:
+        msg: "Container {{ ansible_host }} is {{ container_info.container.State.Status }}"

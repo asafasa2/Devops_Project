@@ -1,26 +1,20 @@
-# Maintenance playbook for system updates and cleanup
+# Maintenance and operational procedures
 ---
-- name: System maintenance tasks
+- name: System maintenance and operations
   hosts: all
-  become: yes
-  
+  gather_facts: yes
+  vars:
+    maintenance_window: "02:00-04:00"
+    backup_retention_days: 7
+    log_retention_days: 30
+    
   tasks:
-    - name: Update package cache
-      package:
-        update_cache: yes
-      when: ansible_os_family == "Debian"
+    - name: Check system resources
+      setup:
+        filter: ansible_*
+      register: system_facts
       
-    - name: Clean up unused Docker images
-      docker_prune:
-        images: yes
-        images_filters:
-          dangling: false
-          
-    - name: Clean up unused Docker volumes
-      docker_prune:
-        volumes: yes
-        
-    - name: Check disk usage
+    - name: Monitor disk usage
       shell: df -h
       register: disk_usage
       
@@ -28,13 +22,103 @@
       debug:
         var: disk_usage.stdout_lines
         
-    - name: Rotate logs
-      logrotate:
-        path: /var/log/containers
-        options:
-          - daily
-          - rotate 7
-          - compress
-          - delaycompress
-          - missingok
-          - notifempty
+    - name: Check container resource usage
+      docker_container_info:
+        name: "{{ ansible_host }}"
+      register: container_stats
+      delegate_to: localhost
+      
+    - name: Clean up old container logs
+      shell: |
+        docker logs {{ ansible_host }} --tail 1000 > /tmp/{{ ansible_host }}-recent.log 2>&1
+        docker exec {{ ansible_host }} sh -c 'echo "" > /proc/1/fd/1' 2>/dev/null || true
+        docker exec {{ ansible_host }} sh -c 'echo "" > /proc/1/fd/2' 2>/dev/null || true
+      delegate_to: localhost
+      when: cleanup_logs | default(true)
+      ignore_errors: yes
+      
+    - name: Remove unused Docker images
+      docker_prune:
+        images: yes
+        images_filters:
+          dangling: false
+          until: "{{ image_cleanup_age | default('72h') }}"
+      delegate_to: localhost
+      run_once: true
+      
+    - name: Clean up Docker volumes
+      docker_prune:
+        volumes: yes
+      delegate_to: localhost
+      run_once: true
+      when: cleanup_volumes | default(false)
+      
+    - name: Update container images
+      docker_image:
+        name: "{{ container_image }}"
+        tag: "{{ container_tag | default('latest') }}"
+        source: pull
+        force_source: yes
+      delegate_to: localhost
+      when: update_images | default(false) and container_image is defined
+      
+    - name: Restart containers with updated images
+      docker_container:
+        name: "{{ ansible_host }}"
+        state: started
+        restart: yes
+        pull: yes
+      delegate_to: localhost
+      when: update_images | default(false) and container_image is defined
+      
+    - name: Backup container volumes
+      shell: |
+        docker run --rm -v {{ item }}:/backup-source -v /opt/backups:/backup-dest alpine:latest \
+        tar czf /backup-dest/{{ ansible_host }}-{{ item | basename }}-{{ ansible_date_time.epoch }}.tar.gz -C /backup-source .
+      loop: "{{ backup_volumes | default([]) }}"
+      delegate_to: localhost
+      when: backup_volumes is defined
+      
+    - name: Clean up old backups
+      find:
+        paths: /opt/backups
+        patterns: "{{ ansible_host }}-*.tar.gz"
+        age: "{{ backup_retention_days }}d"
+      register: old_backups
+      delegate_to: localhost
+      
+    - name: Remove old backup files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_backups.files }}"
+      delegate_to: localhost
+      
+    - name: Check container health status
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: health_status
+      failed_when: false
+      when: health_check_url is defined
+      
+    - name: Generate maintenance report
+      template:
+        src: maintenance-report.j2
+        dest: "/tmp/maintenance-report-{{ ansible_host }}-{{ ansible_date_time.epoch }}.txt"
+      delegate_to: localhost
+      vars:
+        container_info: "{{ container_stats }}"
+        health_info: "{{ health_status | default({}) }}"
+        disk_info: "{{ disk_usage.stdout_lines }}"
+        
+    - name: Send maintenance notifications
+      mail:
+        to: "{{ notification_email | default('admin@localhost') }}"
+        subject: "Maintenance Report - {{ ansible_host }}"
+        body: "Maintenance completed for {{ ansible_host }}. Check logs for details."
+      delegate_to: localhost
+      when: send_notifications | default(false)
+      ignore_errors: yes

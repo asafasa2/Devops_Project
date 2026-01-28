@@ -13,9 +13,9 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/scripts:/opt/scripts:ro
     networks:
-      - app-network
       - db-network
     restart: unless-stopped
     healthcheck:
@@ -23,15 +23,24 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMORY_LIMIT:-1g}
+          cpus: ${POSTGRES_CPU_LIMIT:-2.0}
+        reservations:
+          memory: 256m
+          cpus: '0.5'
 
   redis:
     image: redis:7-alpine
     container_name: ${ENVIRONMENT:-dev}-redis
-    command: redis-server --appendonly yes
+    command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - redis_data:/data
+      - ./database/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
-      - app-network
       - db-network
     restart: unless-stopped
     healthcheck:
@@ -39,50 +48,632 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEMORY_LIMIT:-256m}
+          cpus: ${REDIS_CPU_LIMIT:-1.0}
+        reservations:
+          memory: 64m
+          cpus: '0.25'
+
+  # Application Services
+  api-gateway:
+    image: ${API_GATEWAY_IMAGE:-devops-practice/api-gateway}:${API_GATEWAY_TAG:-latest}
+    container_name: ${ENVIRONMENT:-dev}-api-gateway
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: devops_practice
+      DB_USER: devops_user
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_2024}
+      PORT: 4000
+    ports:
+      - "${API_GATEWAY_PORT:-4000}:4000"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - app-network
+      - db-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${API_GATEWAY_MEMORY_LIMIT:-512m}
+          cpus: ${API_GATEWAY_CPU_LIMIT:-1.0}
+        reservations:
+          memory: 128m
+          cpus: '0.25'
+
+  learning-service:
+    image: ${LEARNING_SERVICE_IMAGE:-devops-practice/learning-service}:${LEARNING_SERVICE_TAG:-latest}
+    container_name: ${ENVIRONMENT:-dev}-learning-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: devops_practice
+      DB_USER: devops_user
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: 4001
+    ports:
+      - "${LEARNING_SERVICE_PORT:-4001}:4001"
+    volumes:
+      - ./logs:/app/logs
+      - ./content:/app/content:ro
+    networks:
+      - app-network
+      - db-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${LEARNING_SERVICE_MEMORY_LIMIT:-512m}
+          cpus: ${LEARNING_SERVICE_CPU_LIMIT:-1.0}
+        reservations:
+          memory: 128m
+          cpus: '0.25'
+
+  user-service:
+    image: ${USER_SERVICE_IMAGE:-devops-practice/user-service}:${USER_SERVICE_TAG:-latest}
+    container_name: ${ENVIRONMENT:-dev}-user-service
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-development}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: devops_practice
+      DB_USER: devops_user
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_2024}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: 4002
+    ports:
+      - "${USER_SERVICE_PORT:-4002}:4002"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - app-network
+      - db-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${USER_SERVICE_MEMORY_LIMIT:-512m}
+          cpus: ${USER_SERVICE_CPU_LIMIT:-1.0}
+        reservations:
+          memory: 128m
+          cpus: '0.25'
+
+  assessment-service:
+    image: ${ASSESSMENT_SERVICE_IMAGE:-devops-practice/assessment-service}:${ASSESSMENT_SERVICE_TAG:-latest}
+    container_name: ${ENVIRONMENT:-dev}-assessment-service
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: devops_practice
+      DB_USER: devops_user
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: 4004
+    ports:
+      - "${ASSESSMENT_SERVICE_PORT:-4004}:4004"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - app-network
+      - db-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4004/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${ASSESSMENT_SERVICE_MEMORY_LIMIT:-512m}
+          cpus: ${ASSESSMENT_SERVICE_CPU_LIMIT:-1.0}
+        reservations:
+          memory: 128m
+          cpus: '0.25'
+
+  lab-service:
+    image: ${LAB_SERVICE_IMAGE:-devops-practice/lab-service}:${LAB_SERVICE_TAG:-latest}
+    container_name: ${ENVIRONMENT:-dev}-lab-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-development}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: devops_practice
+      DB_USER: devops_user
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SERVER_PORT: 4003
+    ports:
+      - "${LAB_SERVICE_PORT:-4003}:4003"
+    volumes:
+      - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - lab_workspaces:/opt/lab-workspaces
+    networks:
+      - app-network
+      - db-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4003/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: ${LAB_SERVICE_MEMORY_LIMIT:-1g}
+          cpus: ${LAB_SERVICE_CPU_LIMIT:-2.0}
+        reservations:
+          memory: 256m
+          cpus: '0.5'
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-devops-practice/frontend}:${FRONTEND_TAG:-latest}
+    container_name: ${ENVIRONMENT:-dev}-frontend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:4000}
+      REACT_APP_ENVIRONMENT: ${ENVIRONMENT:-dev}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - app-network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${FRONTEND_MEMORY_LIMIT:-256m}
+          cpus: ${FRONTEND_CPU_LIMIT:-0.5}
+        reservations:
+          memory: 64m
+          cpus: '0.1'
 
   # Load Balancer
   nginx:
     image: nginx:alpine
     container_name: ${ENVIRONMENT:-dev}-nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
     networks:
       - app-network
     depends_on:
-      - api-gateway
+      frontend:
+        condition: service_healthy
+      api-gateway:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: ${NGINX_MEMORY_LIMIT:-128m}
+          cpus: ${NGINX_CPU_LIMIT:-0.5}
+        reservations:
+          memory: 32m
+          cpus: '0.1'
+
+  # Monitoring Services
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${ENVIRONMENT:-dev}-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - monitoring-network
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: ${ENVIRONMENT:-dev}-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: ${ENVIRONMENT:-dev}-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: ${ENVIRONMENT:-dev}-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: ${ENVIRONMENT:-dev}-postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      DATA_SOURCE_NAME: "postgresql://devops_user:${DB_PASSWORD:-dev_password_2024}@postgres:5432/devops_practice?sslmode=disable"
+    networks:
+      - monitoring-network
+      - db-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: ${ENVIRONMENT:-dev}-redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    networks:
+      - monitoring-network
+      - db-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ${ENVIRONMENT:-dev}-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
+      GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY:-SW2YcwTIb9zpOOhoPsMm}
+    networks:
+      - monitoring-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ELK Stack for Logging
+  elasticsearch:
+    image: elasticsearch:8.8.0
+    container_name: ${ENVIRONMENT:-dev}-elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - ./monitoring/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  logstash:
+    image: logstash:8.8.0
+    container_name: ${ENVIRONMENT:-dev}-logstash
+    ports:
+      - "5044:5044"
+      - "5000:5000"
+      - "5001:5001"
+      - "9600:9600"
+    volumes:
+      - ./monitoring/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    environment:
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+    networks:
+      - monitoring-network
+      - app-network
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9600 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  kibana:
+    image: kibana:8.8.0
+    container_name: ${ENVIRONMENT:-dev}-kibana
+    ports:
+      - "5601:5601"
+    volumes:
+      - ./monitoring/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    networks:
+      - monitoring-network
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  filebeat:
+    image: elastic/filebeat:8.8.0
+    container_name: ${ENVIRONMENT:-dev}-filebeat
+    user: root
+    volumes:
+      - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+    networks:
+      - monitoring-network
+    depends_on:
+      - logstash
+    restart: unless-stopped
+    command: filebeat -e -strict.perms=false
+
+  # CI/CD Services
+  jenkins:
+    build:
+      context: ./jenkins
+      dockerfile: Dockerfile
+    container_name: ${ENVIRONMENT:-dev}-jenkins
+    environment:
+      JAVA_OPTS: -Djenkins.install.runSetupWizard=false -Xmx512m
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc_configs
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin123}
+      JENKINS_DEV_PASSWORD: ${JENKINS_DEV_PASSWORD:-dev123}
+      DOCKER_REGISTRY_PASSWORD: ${DOCKER_REGISTRY_PASSWORD:-admin}
+      SLACK_TOKEN: ${SLACK_TOKEN:-}
+      SSH_PRIVATE_KEY: ${SSH_PRIVATE_KEY:-}
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - ./jenkins/casc_configs:/var/jenkins_home/casc_configs:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace:ro
+    networks:
+      - app-network
+      - monitoring-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/login || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  jenkins-agent:
+    image: jenkins/ssh-agent:latest
+    container_name: ${ENVIRONMENT:-dev}-jenkins-agent
+    environment:
+      JENKINS_AGENT_SSH_PUBKEY: ${JENKINS_AGENT_SSH_PUBKEY:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - jenkins
 
 networks:
   app-network:
+    name: ${ENVIRONMENT:-dev}-app-network
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.25.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: ${ENVIRONMENT:-dev}-app-br
   db-network:
+    name: ${ENVIRONMENT:-dev}-db-network
     driver: bridge
     ipam:
       config:
-        - subnet: 172.22.0.0/16
+        - subnet: 172.26.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: ${ENVIRONMENT:-dev}-db-br
   monitoring-network:
+    name: ${ENVIRONMENT:-dev}-monitoring-network
     driver: bridge
     ipam:
       config:
-        - subnet: 172.21.0.0/16
+        - subnet: 172.27.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: ${ENVIRONMENT:-dev}-mon-br
 
 volumes:
   postgres_data:
     name: ${ENVIRONMENT:-dev}-postgres-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/postgres
   redis_data:
     name: ${ENVIRONMENT:-dev}-redis-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/redis
   jenkins_home:
     name: ${ENVIRONMENT:-dev}-jenkins-home
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/jenkins
   grafana_data:
     name: ${ENVIRONMENT:-dev}-grafana-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/grafana
   prometheus_data:
     name: ${ENVIRONMENT:-dev}-prometheus-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/prometheus
   elasticsearch_data:
     name: ${ENVIRONMENT:-dev}-elasticsearch-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/elasticsearch
+  lab_workspaces:
+    name: ${ENVIRONMENT:-dev}-lab-workspaces
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/lab-workspaces

@@ -1,0 +1,30 @@
+# Log rotation configuration for Docker containers
+/var/lib/docker/containers/*/*.log {
+    daily
+    missingok
+    rotate {{ log_retention_days | default(30) }}
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    create 0644 root root
+    maxsize 100M
+    
+    postrotate
+        # Send HUP signal to Docker daemon to reopen log files
+        /bin/kill -HUP $(cat /var/run/docker.pid 2>/dev/null) 2>/dev/null || true
+    endscript
+}
+
+# Application specific logs
+/opt/app/logs/*.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    create 0644 appuser appuser
+    maxsize 50M
+}

@@ -1,0 +1,105 @@
+# User and security management automation
+---
+- name: Manage users and security configurations
+  hosts: all
+  gather_facts: yes
+  become: yes
+  vars:
+    security_updates_enabled: true
+    password_policy_enabled: true
+    
+  tasks:
+    - name: Create application service accounts
+      user:
+        name: "{{ item.name }}"
+        system: "{{ item.system | default(true) }}"
+        shell: "{{ item.shell | default('/bin/false') }}"
+        home: "{{ item.home | default('/opt/' + item.name) }}"
+        create_home: "{{ item.create_home | default(true) }}"
+        groups: "{{ item.groups | default([]) }}"
+        state: present
+      loop: "{{ service_users | default([]) }}"
+      when: ansible_connection != "docker"
+      
+    - name: Set up SSH keys for service accounts
+      authorized_key:
+        user: "{{ item.user }}"
+        key: "{{ item.key }}"
+        state: present
+      loop: "{{ ssh_keys | default([]) }}"
+      when: ansible_connection != "docker"
+      
+    - name: Configure sudo access for service accounts
+      lineinfile:
+        path: /etc/sudoers.d/service-accounts
+        line: "{{ item.user }} ALL=(ALL) NOPASSWD: {{ item.commands | join(', ') }}"
+        create: yes
+        validate: 'visudo -cf %s'
+      loop: "{{ sudo_users | default([]) }}"
+      when: ansible_connection != "docker"
+      
+    - name: Set up container user permissions
+      docker_container_exec:
+        container: "{{ ansible_host }}"
+        command: "{{ item }}"
+      loop:
+        - "adduser --system --group appuser"
+        - "chown -R appuser:appuser /opt/app"
+        - "chmod 755 /opt/app"
+      delegate_to: localhost
+      when: ansible_connection == "docker"
+      ignore_errors: yes
+      
+    - name: Configure container security options
+      docker_container:
+        name: "{{ ansible_host }}"
+        security_opts:
+          - "no-new-privileges:true"
+          - "apparmor:docker-default"
+        read_only: "{{ container_read_only | default(false) }}"
+        user: "{{ container_user | default('appuser') }}"
+        state: started
+        restart: yes
+      delegate_to: localhost
+      when: ansible_connection == "docker" and apply_security_hardening | default(true)
+      
+    - name: Set up log monitoring for security events
+      template:
+        src: security-monitor.sh.j2
+        dest: /usr/local/bin/security-monitor
+        mode: '0755'
+      when: ansible_connection != "docker"
+      
+    - name: Configure firewall rules for containers
+      iptables:
+        chain: DOCKER-USER
+        rule: "{{ item }}"
+        state: present
+      loop: "{{ firewall_rules | default([]) }}"
+      when: ansible_connection != "docker" and firewall_rules is defined
+      
+    - name: Set up container resource limits
+      docker_container:
+        name: "{{ ansible_host }}"
+        memory: "{{ container_memory_limit | default('512m') }}"
+        cpus: "{{ container_cpu_limit | default('1.0') }}"
+        pids_limit: "{{ container_pids_limit | default(100) }}"
+        state: started
+        restart: yes
+      delegate_to: localhost
+      when: ansible_connection == "docker" and apply_resource_limits | default(true)
+      
+    - name: Configure log rotation for container logs
+      template:
+        src: container-logrotate.conf.j2
+        dest: /etc/logrotate.d/docker-containers
+      when: ansible_connection != "docker"
+      
+    - name: Set up security scanning cron job
+      cron:
+        name: "Container security scan"
+        minute: "0"
+        hour: "2"
+        job: "/usr/local/bin/security-scan.sh"
+        user: root
+      when: ansible_connection != "docker" and enable_security_scanning | default(false)

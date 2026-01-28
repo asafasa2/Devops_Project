@@ -1,53 +1,74 @@
-# Test environment Docker Compose override
+# Test environment Docker Compose configuration
 version: '3.8'
 
 services:
-  # Test database with test data
+  # Test Database Services
   postgres-test:
     image: postgres:15-alpine
     container_name: test-postgres
     environment:
       POSTGRES_DB: devops_practice_test
       POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_password
+      POSTGRES_PASSWORD: test_password_2024
       PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/test-data:/opt/test-data:ro
     tmpfs:
       - /var/lib/postgresql/data
     networks:
       - test-network
+    restart: "no"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test_user -d devops_practice_test"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
 
   redis-test:
     image: redis:7-alpine
     container_name: test-redis
-    command: redis-server --appendonly no --save ""
+    command: redis-server --save "" --appendonly no
     tmpfs:
       - /data
     networks:
       - test-network
+    restart: "no"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: '0.25'
 
-  # Test services
+  # Test Application Services
   api-gateway-test:
     build:
       context: ./services/api-gateway
-      dockerfile: Dockerfile.test
+      dockerfile: Dockerfile
+      target: test
     container_name: test-api-gateway
     environment:
       NODE_ENV: test
       DB_HOST: postgres-test
-      REDIS_HOST: redis-test
+      DB_PORT: 5432
       DB_NAME: devops_practice_test
       DB_USER: test_user
-      DB_PASSWORD: test_password
+      DB_PASSWORD: test_password_2024
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      LOG_LEVEL: error
+      JWT_SECRET: test_jwt_secret_key
+      PORT: 4000
     networks:
       - test-network
     depends_on:
@@ -55,28 +76,256 @@ services:
         condition: service_healthy
       redis-test:
         condition: service_healthy
-    command: ["npm", "run", "test:integration"]
+    restart: "no"
+    command: npm test
+    volumes:
+      - ./test-results:/app/test-results
+      - ./coverage:/app/coverage
 
-  # Test runner for end-to-end tests
-  e2e-tests:
+  learning-service-test:
     build:
-      context: ./tests
+      context: ./services/learning-service
       dockerfile: Dockerfile
-    container_name: e2e-tests
+      target: test
+    container_name: test-learning-service
     environment:
-      BASE_URL: http://api-gateway-test:4000
+      NODE_ENV: test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: devops_practice_test
+      DB_USER: test_user
+      DB_PASSWORD: test_password_2024
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      LOG_LEVEL: error
+      PORT: 4001
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    restart: "no"
+    command: npm test
+    volumes:
+      - ./test-results:/app/test-results
+      - ./coverage:/app/coverage
+
+  user-service-test:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+      target: test
+    container_name: test-user-service
+    environment:
+      FLASK_ENV: testing
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: devops_practice_test
+      DB_USER: test_user
+      DB_PASSWORD: test_password_2024
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      JWT_SECRET: test_jwt_secret_key
+      LOG_LEVEL: error
+      PORT: 4002
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    restart: "no"
+    command: python -m pytest --junitxml=/app/test-results/results.xml --cov=/app --cov-report=xml:/app/coverage/coverage.xml
+    volumes:
+      - ./test-results:/app/test-results
+      - ./coverage:/app/coverage
+
+  assessment-service-test:
+    build:
+      context: ./services/assessment-service
+      dockerfile: Dockerfile
+      target: test
+    container_name: test-assessment-service
+    environment:
+      ENVIRONMENT: test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: devops_practice_test
+      DB_USER: test_user
+      DB_PASSWORD: test_password_2024
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      LOG_LEVEL: error
+      PORT: 4004
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    restart: "no"
+    command: python -m pytest --junitxml=/app/test-results/results.xml --cov=/app --cov-report=xml:/app/coverage/coverage.xml
+    volumes:
+      - ./test-results:/app/test-results
+      - ./coverage:/app/coverage
+
+  lab-service-test:
+    build:
+      context: ./services/lab-service
+      dockerfile: Dockerfile
+      target: test
+    container_name: test-lab-service
+    environment:
+      SPRING_PROFILES_ACTIVE: test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: devops_practice_test
+      DB_USER: test_user
+      DB_PASSWORD: test_password_2024
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      LOG_LEVEL: error
+      SERVER_PORT: 4003
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    restart: "no"
+    command: mvn test
+    volumes:
+      - ./test-results:/app/test-results
+      - ./coverage:/app/coverage
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  frontend-test:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+      target: test
+    container_name: test-frontend
+    environment:
+      NODE_ENV: test
+      REACT_APP_API_URL: http://api-gateway-test:4000
+      REACT_APP_ENVIRONMENT: test
+      CI: true
+    networks:
+      - test-network
+    restart: "no"
+    command: npm test -- --coverage --watchAll=false --testResultsProcessor=jest-junit
+    volumes:
+      - ./test-results:/app/test-results
+      - ./coverage:/app/coverage
+
+  # Integration Test Runner
+  integration-tests:
+    build:
+      context: ./tests/integration
+      dockerfile: Dockerfile
+    container_name: integration-tests
+    environment:
+      API_BASE_URL: http://api-gateway-test:4000
+      FRONTEND_URL: http://frontend-test:3000
       DB_HOST: postgres-test
       DB_NAME: devops_practice_test
       DB_USER: test_user
-      DB_PASSWORD: test_password
+      DB_PASSWORD: test_password_2024
+      REDIS_HOST: redis-test
     networks:
       - test-network
     depends_on:
       - api-gateway-test
+      - learning-service-test
+      - user-service-test
+      - assessment-service-test
+      - lab-service-test
+      - frontend-test
+    restart: "no"
+    command: pytest --junitxml=/app/test-results/integration-results.xml --html=/app/test-results/integration-report.html
     volumes:
-      - ./tests/results:/app/results
-    command: ["npm", "run", "test:e2e"]
+      - ./test-results:/app/test-results
+      - ./coverage:/app/coverage
+
+  # End-to-End Test Runner
+  e2e-tests:
+    build:
+      context: ./tests/e2e
+      dockerfile: Dockerfile
+    container_name: e2e-tests
+    environment:
+      BASE_URL: http://nginx-test
+      HEADLESS: true
+      BROWSER: chromium
+    networks:
+      - test-network
+    depends_on:
+      - nginx-test
+    restart: "no"
+    command: npx playwright test --reporter=junit --output-dir=/app/test-results
+    volumes:
+      - ./test-results:/app/test-results
+      - ./test-screenshots:/app/test-screenshots
+
+  # Test Load Balancer
+  nginx-test:
+    image: nginx:alpine
+    container_name: test-nginx
+    volumes:
+      - ./nginx/nginx.test.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - test-network
+    depends_on:
+      - api-gateway-test
+      - frontend-test
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: '0.25'
+
+  # Test Monitoring (minimal)
+  prometheus-test:
+    image: prom/prometheus:latest
+    container_name: test-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=1h'
+    volumes:
+      - ./monitoring/prometheus/prometheus.test.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - test-network
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.25'
 
 networks:
   test-network:
+    name: test-network
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# Test-specific volumes (ephemeral)
+volumes:
+  test-results:
+    name: test-results
+    driver: local
+  coverage:
+    name: test-coverage
+    driver: local
+  test-screenshots:
+    name: test-screenshots
+    driver: local

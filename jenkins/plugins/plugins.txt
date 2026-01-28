@@ -1,0 +1,72 @@
+# Jenkins Plugins for DevOps Practice Environment
+# Core Pipeline Plugins
+workflow-aggregator:latest
+pipeline-stage-view:latest
+blueocean:latest
+pipeline-build-step:latest
+pipeline-input-step:latest
+pipeline-milestone-step:latest
+pipeline-rest-api:latest
+
+# Docker Integration
+docker-workflow:latest
+docker-plugin:latest
+docker-build-step:latest
+
+# SCM and Git
+git:latest
+github:latest
+github-branch-source:latest
+github-api:latest
+github-pullrequest:latest
+
+# Build Tools
+nodejs:latest
+gradle:latest
+maven-plugin:latest
+
+# Infrastructure as Code
+terraform:latest
+ansible:latest
+
+# Testing and Quality
+junit:latest
+jacoco:latest
+htmlpublisher:latest
+test-results-analyzer:latest
+performance:latest
+
+# Notifications
+slack:latest
+email-ext:latest
+build-user-vars-plugin:latest
+
+# Security and Authentication
+role-strategy:latest
+matrix-auth:latest
+authorize-project:latest
+
+# Configuration Management
+configuration-as-code:latest
+job-dsl:latest
+
+# Monitoring and Metrics
+prometheus:latest
+build-metrics:latest
+timestamper:latest
+
+# Utilities
+build-timeout:latest
+credentials-binding:latest
+ssh-credentials:latest
+plain-credentials:latest
+workflow-cps:latest
+workflow-job:latest
+workflow-durable-task-step:latest
+workflow-scm-step:latest
+workflow-support:latest
+durable-task:latest
+resource-disposer:latest
+ws-cleanup:latest
+build-name-setter:latest
+copyartifact:latest

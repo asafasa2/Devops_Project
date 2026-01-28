@@ -1,0 +1,43 @@
+# CentOS Managed Node Dockerfile
+FROM centos:7
+
+# Install SSH server and common packages
+RUN yum update -y \
+    && yum install -y \
+    openssh-server \
+    python3 \
+    python3-pip \
+    curl \
+    wget \
+    vim \
+    nano \
+    net-tools \
+    sudo \
+    && yum clean all
+
+# Configure SSH
+RUN ssh-keygen -A \
+    && echo 'root:ansible' | chpasswd \
+    && sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# Create SSH directory for root
+RUN mkdir -p /root/.ssh \
+    && chmod 700 /root/.ssh
+
+# Create ansible user
+RUN useradd -m -s /bin/bash ansible \
+    && echo 'ansible:ansible' | chpasswd \
+    && usermod -aG wheel ansible \
+    && echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Create SSH directory for ansible user
+RUN mkdir -p /home/ansible/.ssh \
+    && chown ansible:ansible /home/ansible/.ssh \
+    && chmod 700 /home/ansible/.ssh
+
+# Expose SSH port
+EXPOSE 22
+
+# Start SSH service
+CMD ["/usr/sbin/sshd", "-D"]

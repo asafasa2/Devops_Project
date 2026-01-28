@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dev-postgres
+    environment:
+      POSTGRES_DB: devops_practice
+      POSTGRES_USER: devops_user
+      POSTGRES_PASSWORD: dev_password_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devops_user -d devops_practice"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cache
+  redis:
+    image: redis:7-alpine
+    container_name: dev-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Learning Service
+  learning-service:
+    build:
+      context: ./services/learning-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: dev-learning-service
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://devops_user:dev_password_2024@postgres:5432/devops_practice
+      REDIS_URL: redis://redis:6379
+      PORT: 4001
+      LOG_LEVEL: debug
+    ports:
+      - "4001:4001"
+    volumes:
+      - ./services/learning-service/src:/app/src
+      - ./database/learning-content:/app/content
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: npm run dev
+
+  # User Service
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: dev-user-service
+    environment:
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://devops_user:dev_password_2024@postgres:5432/devops_practice
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_key_2024
+      PORT: 4002
+    ports:
+      - "4002:4002"
+    volumes:
+      - ./services/user-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: flask run --host=0.0.0.0 --port=4002 --reload
+
+  # Frontend
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: dev-frontend
+    environment:
+      NODE_ENV: development
+      REACT_APP_API_URL: http://localhost:4001
+      CHOKIDAR_USEPOLLING: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./services/frontend/src:/app/src
+      - ./services/frontend/public:/app/public
+    restart: unless-stopped
+    command: npm start
+
+  # Database Admin Tool
+  adminer:
+    image: adminer:latest
+    container_name: dev-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -5,6 +5,13 @@ jenkins:
     
     This Jenkins instance is configured for the DevOps Practice Environment.
     It includes pipelines for building, testing, and deploying the learning platform.
+    
+    Available Tools:
+    - Docker CLI for container operations
+    - Terraform for infrastructure provisioning
+    - Ansible for configuration management
+    - Node.js 18 for frontend builds
+    - Python 3 for backend services
   
   numExecutors: 2
   mode: NORMAL
@@ -19,23 +26,37 @@ jenkins:
             - "hudson.model.MyViewsProperty"
             - "hudson.search.UserSearchProperty"
             - "jenkins.security.ApiTokenProperty"
+            - "hudson.tasks.Mailer$UserProperty":
+                emailAddress: "admin@devops-practice.local"
         - id: developer
           password: ${JENKINS_DEV_PASSWORD:-dev123}
           properties:
             - "hudson.model.MyViewsProperty"
             - "hudson.search.UserSearchProperty"
             - "jenkins.security.ApiTokenProperty"
+            - "hudson.tasks.Mailer$UserProperty":
+                emailAddress: "developer@devops-practice.local"
   
   authorizationStrategy:
     globalMatrix:
       permissions:
         - "Overall/Administer:admin"
         - "Overall/Read:authenticated"
+        - "Overall/SystemConfiguration:admin"
         - "Job/Build:developer"
         - "Job/Cancel:developer"
+        - "Job/Configure:developer"
+        - "Job/Create:developer"
+        - "Job/Delete:developer"
         - "Job/Read:developer"
         - "Job/Workspace:developer"
+        - "View/Create:developer"
+        - "View/Delete:developer"
         - "View/Read:authenticated"
+        - "View/Configure:developer"
+        - "Run/Replay:developer"
+        - "Run/Update:developer"
+        - "SCM/Tag:developer"
   
   remotingSecurity:
     enabled: true
@@ -49,12 +70,20 @@ jenkins:
         retentionStrategy: "always"
         launcher:
           ssh:
-            host: "docker-agent"
+            host: "jenkins-agent"
             port: 22
             credentialsId: "docker-agent-ssh"
             maxNumRetries: 3
             retryWaitTime: 15
             sshHostKeyVerificationStrategy: "nonVerifyingKeyVerificationStrategy"
+
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "DOCKER_HOST"
+            value: "unix:///var/run/docker.sock"
+          - key: "COMPOSE_PROJECT_NAME"
+            value: "devops-practice"
 
 tool:
   git:
@@ -82,6 +111,15 @@ tool:
       - name: "terraform"
         home: "/usr/local/bin/terraform"
 
+  maven:
+    installations:
+      - name: "Maven 3.9"
+        properties:
+          - installSource:
+              installers:
+                - maven:
+                    id: "3.9.4"
+
 credentials:
   system:
     domainCredentials:
@@ -99,14 +137,21 @@ credentials:
               username: "jenkins"
               privateKeySource:
                 directEntry:
-                  privateKey: "${SSH_PRIVATE_KEY}"
+                  privateKey: "${SSH_PRIVATE_KEY:-}"
               description: "SSH key for Docker agent"
           
           - string:
               scope: GLOBAL
               id: "slack-token"
-              secret: "${SLACK_TOKEN}"
+              secret: "${SLACK_TOKEN:-}"
               description: "Slack notification token"
+          
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-credentials"
+              username: "devops-practice"
+              password: "${GITHUB_TOKEN:-}"
+              description: "GitHub API credentials"
 
 unclassified:
   location:
@@ -122,11 +167,13 @@ unclassified:
             scm:
               git:
                 remote: "https://github.com/devops-practice/jenkins-shared-library.git"
+                credentialsId: "github-credentials"
   
   slackNotifier:
     teamDomain: "devops-practice"
-    token: "${SLACK_TOKEN}"
+    token: "${SLACK_TOKEN:-}"
     room: "#devops-alerts"
+    sendAs: "Jenkins CI/CD"
   
   timestamper:
     allPipelines: true
@@ -142,6 +189,22 @@ unclassified:
               artifactDaysToKeepStr: "7"
               artifactNumToKeepStr: "10"
 
+  prometheus:
+    path: "/prometheus"
+    defaultNamespace: "jenkins"
+    jobAttributeName: "jenkins_job"
+    collectingMetricsPeriodInSeconds: 120
+
+  dockerBuilder:
+    dockerInstallation:
+      - name: "docker"
+        dockerHost:
+          uri: "unix:///var/run/docker.sock"
+
+security:
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+
 jobs:
   - script: |
       multibranchPipelineJob('devops-practice-pipeline') {
@@ -151,8 +214,7 @@ jobs:
           branchSources {
               git {
                   id('devops-practice-repo')
-                  remote('https://github.com/devops-practice/environment.git')
-                  credentialsId('github-credentials')
+                  remote('.')
                   includes('main develop feature/* release/* hotfix/*')
               }
           }
@@ -165,7 +227,7 @@ jobs:
           
           triggers {
               periodicFolderTrigger {
-                  interval('1h')
+                  interval('5m')
               }
           }
           
@@ -173,6 +235,27 @@ jobs:
               discardOldItems {
                   daysToKeep(7)
                   numToKeep(20)
+              }
+          }
+          
+          configure { project ->
+              project / 'properties' / 'org.jenkinsci.plugins.workflow.multibranch.BranchJobProperty' {
+                  'strategy' {
+                      'jenkins.branch.DefaultBranchPropertyStrategy' {
+                          'props' {
+                              'jenkins.model.BuildDiscarderProperty' {
+                                  'strategy' {
+                                      'hudson.tasks.LogRotator' {
+                                          'daysToKeepStr'('30')
+                                          'numToKeepStr'('50')
+                                          'artifactDaysToKeepStr'('7')
+                                          'artifactNumToKeepStr'('10')
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
               }
           }
       }
@@ -186,6 +269,20 @@ jobs:
               choiceParam('ENVIRONMENT', ['dev', 'staging', 'prod'], 'Target environment')
               choiceParam('ACTION', ['plan', 'apply', 'destroy'], 'Terraform action')
               booleanParam('AUTO_APPROVE', false, 'Auto-approve Terraform changes')
+              stringParam('TERRAFORM_VARS', '', 'Additional Terraform variables (key=value format)')
+          }
+          
+          properties {
+              buildDiscarder {
+                  strategy {
+                      logRotator {
+                          daysToKeepStr('30')
+                          numToKeepStr('20')
+                          artifactDaysToKeepStr('7')
+                          artifactNumToKeepStr('5')
+                      }
+                  }
+              }
           }
           
           definition {
@@ -194,16 +291,127 @@ jobs:
                       pipeline {
                           agent any
                           
+                          environment {
+                              TF_IN_AUTOMATION = 'true'
+                              TF_INPUT = '0'
+                          }
+                          
                           stages {
-                              stage('Terraform') {
+                              stage('Checkout') {
+                                  steps {
+                                      checkout scm
+                                  }
+                              }
+                              
+                              stage('Terraform Init') {
                                   steps {
                                       dir('terraform') {
-                                          sh """
-                                              terraform init
-                                              terraform ${params.ACTION} -var-file="environments/${params.ENVIRONMENT}.tfvars" ${params.AUTO_APPROVE ? '-auto-approve' : ''}
-                                          """
+                                          sh 'terraform init -upgrade'
                                       }
                                   }
+                              }
+                              
+                              stage('Terraform Validate') {
+                                  steps {
+                                      dir('terraform') {
+                                          sh 'terraform validate'
+                                          sh 'terraform fmt -check=true'
+                                      }
+                                  }
+                              }
+                              
+                              stage('Terraform Plan') {
+                                  when {
+                                      anyOf {
+                                          params.ACTION == 'plan'
+                                          params.ACTION == 'apply'
+                                      }
+                                  }
+                                  steps {
+                                      dir('terraform') {
+                                          script {
+                                              def extraVars = params.TERRAFORM_VARS ? "-var='${params.TERRAFORM_VARS}'" : ""
+                                              sh """
+                                                  terraform plan \\
+                                                      -var-file="environments/${params.ENVIRONMENT}.tfvars" \\
+                                                      ${extraVars} \\
+                                                      -out=tfplan
+                                              """
+                                          }
+                                      }
+                                  }
+                              }
+                              
+                              stage('Terraform Apply') {
+                                  when {
+                                      params.ACTION == 'apply'
+                                  }
+                                  steps {
+                                      dir('terraform') {
+                                          script {
+                                              if (params.AUTO_APPROVE) {
+                                                  sh 'terraform apply tfplan'
+                                              } else {
+                                                  input message: 'Apply Terraform changes?', ok: 'Apply'
+                                                  sh 'terraform apply tfplan'
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                              
+                              stage('Terraform Destroy') {
+                                  when {
+                                      params.ACTION == 'destroy'
+                                  }
+                                  steps {
+                                      dir('terraform') {
+                                          script {
+                                              if (params.AUTO_APPROVE) {
+                                                  sh """
+                                                      terraform destroy \\
+                                                          -var-file="environments/${params.ENVIRONMENT}.tfvars" \\
+                                                          -auto-approve
+                                                  """
+                                              } else {
+                                                  input message: 'Destroy infrastructure?', ok: 'Destroy'
+                                                  sh """
+                                                      terraform destroy \\
+                                                          -var-file="environments/${params.ENVIRONMENT}.tfvars" \\
+                                                          -auto-approve
+                                                  """
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                          
+                          post {
+                              always {
+                                  archiveArtifacts artifacts: 'terraform/tfplan', allowEmptyArchive: true
+                                  publishHTML([
+                                      allowMissing: false,
+                                      alwaysLinkToLastBuild: true,
+                                      keepAll: true,
+                                      reportDir: 'terraform',
+                                      reportFiles: '*.html',
+                                      reportName: 'Terraform Plan Report'
+                                  ])
+                              }
+                              success {
+                                  slackSend(
+                                      channel: '#devops-alerts',
+                                      color: 'good',
+                                      message: "✅ Terraform ${params.ACTION} completed successfully for ${params.ENVIRONMENT}"
+                                  )
+                              }
+                              failure {
+                                  slackSend(
+                                      channel: '#devops-alerts',
+                                      color: 'danger',
+                                      message: "❌ Terraform ${params.ACTION} failed for ${params.ENVIRONMENT}"
+                                  )
                               }
                           }
                       }
@@ -215,13 +423,28 @@ jobs:
   
   - script: |
       pipelineJob('ansible-configuration') {
-          displayName('Ansible Configuration')
-          description('Configure services using Ansible')
+          displayName('Ansible Configuration Management')
+          description('Configure services using Ansible playbooks')
           
           parameters {
               choiceParam('ENVIRONMENT', ['dev', 'staging', 'prod'], 'Target environment')
               choiceParam('PLAYBOOK', ['site.yml', 'deploy.yml', 'maintenance.yml'], 'Ansible playbook')
               stringParam('EXTRA_VARS', '', 'Extra variables (key=value format)')
+              stringParam('TAGS', '', 'Ansible tags to run (comma-separated)')
+              booleanParam('CHECK_MODE', false, 'Run in check mode (dry run)')
+          }
+          
+          properties {
+              buildDiscarder {
+                  strategy {
+                      logRotator {
+                          daysToKeepStr('30')
+                          numToKeepStr('20')
+                          artifactDaysToKeepStr('7')
+                          artifactNumToKeepStr('5')
+                      }
+                  }
+              }
           }
           
           definition {
@@ -231,14 +454,80 @@ jobs:
                           agent any
                           
                           stages {
-                              stage('Ansible') {
+                              stage('Checkout') {
+                                  steps {
+                                      checkout scm
+                                  }
+                              }
+                              
+                              stage('Ansible Lint') {
+                                  steps {
+                                      dir('ansible') {
+                                          sh 'ansible-lint playbooks/${PLAYBOOK}'
+                                      }
+                                  }
+                              }
+                              
+                              stage('Ansible Syntax Check') {
                                   steps {
                                       dir('ansible') {
                                           sh """
-                                              ansible-playbook -i inventories/${params.ENVIRONMENT}/hosts.yml playbooks/${params.PLAYBOOK} ${params.EXTRA_VARS ? '--extra-vars "' + params.EXTRA_VARS + '"' : ''}
+                                              ansible-playbook \\
+                                                  -i inventories/${params.ENVIRONMENT}/hosts.yml \\
+                                                  playbooks/${params.PLAYBOOK} \\
+                                                  --syntax-check
                                           """
                                       }
                                   }
+                              }
+                              
+                              stage('Ansible Execution') {
+                                  steps {
+                                      dir('ansible') {
+                                          script {
+                                              def checkMode = params.CHECK_MODE ? '--check' : ''
+                                              def extraVars = params.EXTRA_VARS ? "--extra-vars '${params.EXTRA_VARS}'" : ''
+                                              def tags = params.TAGS ? "--tags '${params.TAGS}'" : ''
+                                              
+                                              sh """
+                                                  ansible-playbook \\
+                                                      -i inventories/${params.ENVIRONMENT}/hosts.yml \\
+                                                      playbooks/${params.PLAYBOOK} \\
+                                                      ${checkMode} \\
+                                                      ${extraVars} \\
+                                                      ${tags} \\
+                                                      --diff
+                                              """
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                          
+                          post {
+                              always {
+                                  publishHTML([
+                                      allowMissing: true,
+                                      alwaysLinkToLastBuild: true,
+                                      keepAll: true,
+                                      reportDir: 'ansible',
+                                      reportFiles: '*.html',
+                                      reportName: 'Ansible Report'
+                                  ])
+                              }
+                              success {
+                                  slackSend(
+                                      channel: '#devops-alerts',
+                                      color: 'good',
+                                      message: "✅ Ansible playbook ${params.PLAYBOOK} completed successfully for ${params.ENVIRONMENT}"
+                                  )
+                              }
+                              failure {
+                                  slackSend(
+                                      channel: '#devops-alerts',
+                                      color: 'danger',
+                                      message: "❌ Ansible playbook ${params.PLAYBOOK} failed for ${params.ENVIRONMENT}"
+                                  )
                               }
                           }
                       }

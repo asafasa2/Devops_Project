@@ -1,0 +1,10 @@
+# Ignore backup files
+backups/*.sql
+backups/*.sql.gz
+
+# Ignore temporary files
+*.tmp
+*.log
+
+# Ignore environment-specific configs
+.env.local

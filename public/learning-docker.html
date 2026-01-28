@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Containerization Learning Path</title>
+    <link rel="stylesheet" href="css/content-styles.css">
+    <link rel="stylesheet" href="css/navigation-styles.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0db7ed 0%, #0a5d7a 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .page-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 40px 20px;
+        }
+        
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .docker-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .module-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .module-selector h2 {
+            color: #0db7ed;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .module-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .module-btn {
+            background: linear-gradient(135deg, #0db7ed 0%, #0a5d7a 100%);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .module-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 183, 237, 0.3);
+        }
+        
+        .module-btn.active {
+            background: linear-gradient(135deg, #0a5d7a 0%, #0db7ed 100%);
+            box-shadow: 0 5px 15px rgba(13, 183, 237, 0.4);
+        }
+        
+        #content-display {
+            display: none;
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 25px;
+            transition: background 0.2s ease;
+        }
+        
+        .back-link:hover {
+            background: rgba(255,255,255,0.2);
+            text-decoration: none;
+        }
+        
+        .docker-simulator {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .terminal {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 20px;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .command-input {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .prompt {
+            color: #00ff00;
+            margin-right: 10px;
+        }
+        
+        .command-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .quick-commands {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .quick-cmd {
+            background: #e9ecef;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .quick-cmd:hover {
+            background: #dee2e6;
+        }
+    </style>
+    <script src="js/content-renderer.js"></script>
+    <script src="js/navigation-system.js"></script>
+</head>
+<body>
+    <div class="container">
+        <a href="learning-dashboard.html" class="back-link">← Back to Learning Dashboard</a>
+        
+        <div class="page-header">
+            <h1>🐳 Docker Containerization Learning Path</h1>
+            <p>Master containerization with Docker from basics to advanced image building and management</p>
+        </div>
+        
+        <div class="docker-info">
+            <h3>🎯 Docker Learning Path</h3>
+            <p>Learn containerization fundamentals, Docker commands, image building with Dockerfiles, and best practices for production deployments. This path covers everything from basic container concepts to advanced multi-stage builds and security practices.</p>
+        </div>
+        
+        <div class="docker-simulator">
+            <h3>🖥️ Docker Command Simulator</h3>
+            <p>Practice essential Docker commands in this interactive simulator:</p>
+            
+            <div class="terminal" id="terminal">
+                <div>Welcome to Docker command simulator! Try some commands below.</div>
+                <div>Type 'help' for available commands or use the quick commands.</div>
+                <div>&nbsp;</div>
+            </div>
+            
+            <div class="command-input">
+                <span class="prompt">docker</span>
+                <input type="text" class="command-field" id="commandInput" placeholder="ps" onkeypress="handleCommand(event)">
+            </div>
+            
+            <div class="quick-commands">
+                <button class="quick-cmd" onclick="runQuickCommand('ps')">ps</button>
+                <button class="quick-cmd" onclick="runQuickCommand('images')">images</button>
+                <button class="quick-cmd" onclick="runQuickCommand('version')">version</button>
+                <button class="quick-cmd" onclick="runQuickCommand('info')">info</button>
+                <button class="quick-cmd" onclick="runQuickCommand('pull nginx')">pull nginx</button>
+                <button class="quick-cmd" onclick="runQuickCommand('run hello-world')">run hello-world</button>
+            </div>
+        </div>
+        
+        <div class="module-selector">
+            <h2>Select Learning Module</h2>
+            <div class="module-buttons">
+                <button class="module-btn" onclick="loadModule('Docker Fundamentals: Introduction to Containerization')">
+                    📚 Module 1: Docker Fundamentals
+                </button>
+                <button class="module-btn" onclick="loadModule('Docker Installation and Basic Commands')">
+                    🛠️ Module 2: Installation & Commands
+                </button>
+                <button class="module-btn" onclick="loadModule('Dockerfile and Image Building')">
+                    🏗️ Module 3: Dockerfile & Images
+                </button>
+                <button class="module-btn" onclick="loadQuiz('Docker Fundamentals Quiz')">
+                    📝 Docker Fundamentals Quiz
+                </button>
+                <button class="module-btn" onclick="loadLab('Docker Basics Hands-on Lab')">
+                    🧪 Docker Basics Lab
+                </button>
+                <button class="module-btn" onclick="loadQuiz('Comprehensive Docker Assessment')">
+                    🎓 Docker Assessment
+                </button>
+            </div>
+        </div>
+        
+        <div id="content-display">
+            <!-- Dynamic content will be loaded here -->
+        </div>
+    </div>
+    
+    <script>
+        // Docker learning content data (simulated database content)
+        const dockerContent = {
+            'Docker Fundamentals: Introduction to Containerization': {
+                title: 'Docker Fundamentals: Introduction to Containerization',
+                content_type: 'module',
+                tool_category: 'docker',
+                difficulty_level: 'beginner',
+                estimated_duration: 40,
+                content_data: {
+                    sections: [
+                        {
+                            title: "What is Containerization?",
+                            content: "Containerization is a lightweight form of virtualization that packages applications and their dependencies into portable containers that can run consistently across different environments.",
+                            benefits: [
+                                "Consistent environments across development, testing, and production",
+                                "Improved resource utilization compared to virtual machines",
+                                "Faster deployment and scaling",
+                                "Better isolation and security",
+                                "Simplified dependency management"
+                            ]
+                        },
+                        {
+                            title: "Introduction to Docker",
+                            content: "Docker is a platform that uses OS-level virtualization to deliver software in packages called containers. It provides tools to build, ship, and run applications anywhere.",
+                            key_concepts: [
+                                "Containers vs Virtual Machines",
+                                "Docker Engine architecture",
+                                "Images and containers relationship",
+                                "Docker Hub registry",
+                                "Dockerfile for building images"
+                            ]
+                        },
+                        {
+                            title: "Docker Architecture",
+                            content: "Docker uses a client-server architecture with the Docker daemon managing containers and the Docker client providing the command-line interface.",
+                            components: [
+                                {
+                                    name: "Docker Client",
+                                    description: "Command-line interface for interacting with Docker"
+                                },
+                                {
+                                    name: "Docker Daemon",
+                                    description: "Background service that manages containers, images, and networks"
+                                },
+                                {
+                                    name: "Docker Images",
+                                    description: "Read-only templates used to create containers"
+                                },
+                                {
+                                    name: "Docker Containers",
+                                    description: "Running instances of Docker images"
+                                },
+                                {
+                                    name: "Docker Registry",
+                                    description: "Storage and distribution system for Docker images"
+                                }
+                            ]
+                        },
+                        {
+                            title: "Containers vs Virtual Machines",
+                            content: "Understanding the differences between containers and VMs is crucial for choosing the right technology.",
+                            comparison: {
+                                containers: {
+                                    pros: ["Lightweight", "Fast startup", "Better resource utilization", "Portable"],
+                                    cons: ["Shared kernel", "Less isolation", "OS dependency"]
+                                },
+                                virtual_machines: {
+                                    pros: ["Complete isolation", "Different OS support", "Mature ecosystem"],
+                                    cons: ["Resource overhead", "Slower startup", "Larger size"]
+                                }
+                            }
+                        }
+                    ],
+                    objectives: [
+                        "Understand containerization concepts and benefits",
+                        "Learn Docker architecture and components",
+                        "Compare containers with virtual machines",
+                        "Identify use cases for Docker containers"
+                    ],
+                    interactive_elements: [
+                        {
+                            type: "knowledge_check",
+                            question: "What is the main advantage of containers over virtual machines?",
+                            options: ["Better security", "Lighter resource usage", "Different OS support", "More isolation"],
+                            correct: 1,
+                            explanation: "Containers share the host OS kernel, making them much lighter and faster than VMs which require a full guest OS."
+                        }
+                    ]
+                }
+            },
+            'Docker Installation and Basic Commands': {
+                title: 'Docker Installation and Basic Commands',
+                content_type: 'module',
+                tool_category: 'docker',
+                difficulty_level: 'beginner',
+                estimated_duration: 45,
+                content_data: {
+                    sections: [
+                        {
+                            title: "Installing Docker",
+                            content: "Docker can be installed on various operating systems including Linux, macOS, and Windows.",
+                            installation_methods: [
+                                {
+                                    platform: "Ubuntu/Debian",
+                                    commands: [
+                                        "sudo apt-get update",
+                                        "sudo apt-get install docker.io",
+                                        "sudo systemctl start docker",
+                                        "sudo systemctl enable docker"
+                                    ]
+                                },
+                                {
+                                    platform: "CentOS/RHEL",
+                                    commands: [
+                                        "sudo yum install -y docker",
+                                        "sudo systemctl start docker",
+                                        "sudo systemctl enable docker"
+                                    ]
+                                },
+                                {
+                                    platform: "macOS/Windows",
+                                    description: "Download Docker Desktop from docker.com"
+                                }
+                            ]
+                        },
+                        {
+                            title: "Essential Docker Commands",
+                            content: "Master the fundamental Docker commands for managing images and containers.",
+                            command_categories: [
+                                {
+                                    category: "Image Management",
+                                    commands: [
+                                        {
+                                            command: "docker pull <image>",
+                                            description: "Download an image from registry"
+                                        },
+                                        {
+                                            command: "docker images",
+                                            description: "List all local images"
+                                        },
+                                        {
+                                            command: "docker rmi <image>",
+                                            description: "Remove an image"
+                                        },
+                                        {
+                                            command: "docker build -t <name> .",
+                                            description: "Build image from Dockerfile"
+                                        }
+                                    ]
+                                },
+                                {
+                                    category: "Container Management",
+                                    commands: [
+                                        {
+                                            command: "docker run <image>",
+                                            description: "Create and start a container"
+                                        },
+                                        {
+                                            command: "docker ps",
+                                            description: "List running containers"
+                                        },
+                                        {
+                                            command: "docker ps -a",
+                                            description: "List all containers"
+                                        },
+                                        {
+                                            command: "docker stop <container>",
+                                            description: "Stop a running container"
+                                        },
+                                        {
+                                            command: "docker rm <container>",
+                                            description: "Remove a container"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            title: "Working with Docker Images",
+                            content: "Docker images are the foundation of containers. Learn how to find, pull, and manage images.",
+                            code_examples: [
+                                {
+                                    title: "Pulling and Running Images",
+                                    code: "# Pull an image from Docker Hub\ndocker pull nginx:latest\n\n# Run a container from the image\ndocker run -d -p 8080:80 --name my-nginx nginx:latest\n\n# Check running containers\ndocker ps\n\n# View container logs\ndocker logs my-nginx"
+                                }
+                            ]
+                        },
+                        {
+                            title: "Container Lifecycle Management",
+                            content: "Understanding how to manage the complete lifecycle of containers from creation to removal.",
+                            lifecycle_stages: [
+                                "Create: docker create",
+                                "Start: docker start", 
+                                "Run: docker run (create + start)",
+                                "Pause: docker pause",
+                                "Stop: docker stop",
+                                "Remove: docker rm"
+                            ],
+                            code_examples: [
+                                {
+                                    title: "Container Lifecycle Example",
+                                    code: "# Create a container without starting it\ndocker create --name my-app nginx:latest\n\n# Start the created container\ndocker start my-app\n\n# Execute commands in running container\ndocker exec -it my-app bash\n\n# Stop the container\ndocker stop my-app\n\n# Remove the container\ndocker rm my-app"
+                                }
+                            ]
+                        }
+                    ],
+                    objectives: [
+                        "Install Docker on different operating systems",
+                        "Execute essential Docker commands",
+                        "Manage Docker images and containers",
+                        "Understand container lifecycle management"
+                    ]
+                }
+            }
+            // Additional modules would be added here...
+        };
+        
+        // Docker command simulator
+        const dockerCommands = {
+            'help': 'Available commands: ps, images, version, info, pull, run, stop, rm, rmi, build, logs, exec',
+            'ps': 'CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS                    NAMES\nabc123def456   nginx:latest   "/docker-entrypoint.…"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp     web-server\ndef456ghi789   redis:alpine   "docker-entrypoint.s…"   1 day ago       Up 1 day       6379/tcp                 redis-cache',
+            'images': 'REPOSITORY    TAG       IMAGE ID       CREATED        SIZE\nnginx         latest    abc123def456   2 weeks ago    142MB\nredis         alpine    def456ghi789   3 weeks ago    32.3MB\nhello-world   latest    ghi789abc123   4 months ago   13.3kB',
+            'version': 'Client: Docker Engine - Community\n Version:           24.0.6\n API version:       1.43\n Go version:        go1.20.7\n\nServer: Docker Engine - Community\n Engine:\n  Version:          24.0.6\n  API version:      1.43 (minimum version 1.12)',
+            'info': 'Client:\n Context:    default\n Debug Mode: false\n\nServer:\n Containers: 2\n  Running: 2\n  Paused: 0\n  Stopped: 0\n Images: 3\n Server Version: 24.0.6\n Storage Driver: overlay2\n Logging Driver: json-file\n Cgroup Driver: systemd\n Kernel Version: 5.15.0\n Operating System: Ubuntu 22.04.3 LTS\n Architecture: x86_64\n CPUs: 4\n Total Memory: 7.775GiB',
+            'pull nginx': 'Using default tag: latest\nlatest: Pulling from library/nginx\na2abf6c4d29d: Pull complete\na9edb18cadd1: Pull complete\n589b7251471a: Pull complete\n186b1aaa4aa6: Pull complete\nb4df32aa5a72: Pull complete\na0bcbecc962e: Pull complete\nDigest: sha256:0d17b565c37bcbd895e9d92315a05c1c3c9a29f762b011a10c54a66cd53c9b31\nStatus: Downloaded newer image for nginx:latest\ndocker.io/library/nginx:latest',
+            'run hello-world': 'Unable to find image hello-world:latest locally\nlatest: Pulling from library/hello-world\n2db29710123e: Pull complete\nDigest: sha256:7d91b69e04a9029b99f3585aaaccae2baa80bcf318f4a5d2165a9898cd2dc0a1\nStatus: Downloaded newer image for hello-world:latest\n\nHello from Docker!\nThis message shows that your installation appears to be working correctly.\n\nTo generate this message, Docker took the following steps:\n 1. The Docker client contacted the Docker daemon.\n 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.\n 3. The Docker daemon created a new container from that image which runs the\n    executable that produces the output you are currently reading.\n 4. The Docker daemon streamed that output to the Docker client, which sent it\n    to your terminal.'
+        };
+        
+        function handleCommand(event) {
+            if (event.key === 'Enter') {
+                const command = event.target.value.trim();
+                const terminal = document.getElementById('terminal');
+                
+                // Add command to terminal
+                const commandLine = document.createElement('div');
+                commandLine.innerHTML = `<span style="color: #00ff00;">docker ${command}</span>`;
+                terminal.appendChild(commandLine);
+                
+                // Add response
+                const response = document.createElement('div');
+                response.style.color = '#ffffff';
+                response.style.marginBottom = '10px';
+                response.style.whiteSpace = 'pre-line';
+                
+                if (dockerCommands[command]) {
+                    response.textContent = dockerCommands[command];
+                } else {
+                    response.innerHTML = `<span style="color: #ff6b6b;">Error: unknown command "${command}". Type 'help' for available commands.</span>`;
+                }
+                
+                terminal.appendChild(response);
+                
+                // Clear input and scroll to bottom
+                event.target.value = '';
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        }
+        
+        function runQuickCommand(command) {
+            const input = document.getElementById('commandInput');
+            input.value = command;
+            const event = new KeyboardEvent('keypress', { key: 'Enter' });
+            handleCommand(event);
+        }
+        
+        let currentModule = null;
+        
+        function loadModule(moduleTitle) {
+            const moduleData = dockerContent[moduleTitle];
+            if (!moduleData) {
+                alert(`Module "${moduleTitle}" content not found. This would normally load from the database.`);
+                return;
+            }
+            
+            // Update active button
+            document.querySelectorAll('.module-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show content display
+            const contentDisplay = document.getElementById('content-display');
+            contentDisplay.style.display = 'block';
+            
+            // Render module content
+            const renderedContent = window.contentRenderer.renderModule(moduleData);
+            contentDisplay.innerHTML = renderedContent;
+            
+            // Initialize navigation
+            window.navigationSystem.generateTOC(moduleData);
+            window.navigationSystem.showBreadcrumbs([
+                { title: 'Learning Dashboard', url: 'learning-dashboard.html' },
+                { title: 'Docker Learning Path', url: 'learning-docker.html' },
+                { title: moduleTitle, url: '#' }
+            ]);
+            
+            // Scroll to content
+            contentDisplay.scrollIntoView({ behavior: 'smooth' });
+            
+            // Re-initialize syntax highlighting
+            if (typeof Prism !== 'undefined') {
+                setTimeout(() => Prism.highlightAll(), 100);
+            }
+        }
+        
+        function loadQuiz(quizTitle) {
+            if (quizTitle === 'Docker Fundamentals Quiz') {
+                window.open('docker-quiz.html', '_blank');
+            } else {
+                alert(`Quiz "${quizTitle}" would open in a new window or modal. This integrates with the existing quiz system.`);
+            }
+        }
+        
+        function loadLab(labTitle) {
+            alert(`Lab "${labTitle}" would launch the interactive lab environment. This integrates with the existing lab system.`);
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-load first module if specified in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const moduleParam = urlParams.get('module');
+            if (moduleParam && dockerContent[moduleParam]) {
+                loadModule(moduleParam);
+            }
+        });
+    </script>
+</body>
+</html>
+            margin-bottom: 40px;
+        }
+        
+        .module-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .module-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .module-card h3 {
+            color: #0db7ed;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+        
+        .module-card p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .module-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        .difficulty {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .difficulty.beginner {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .difficulty.intermediate {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #0db7ed 0%, #0a5d7a 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .docker-simulator {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .terminal {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 20px;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .command-input {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .prompt {
+            color: #00ff00;
+            margin-right: 10px;
+        }
+        
+        .command-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .quick-commands {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .quick-cmd {
+            background: #e9ecef;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .quick-cmd:hover {
+            background: #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="learning-dashboard.html" class="back-link">← Back to Learning Dashboard</a>
+        
+        <div class="header">
+            <h1>🐳 Docker Containerization Learning Path</h1>
+            <p>Master containerization with Docker from basics to advanced image building and management</p>
+        </div>
+        
+        <div class="docker-info">
+            <h3>🎯 Docker Learning Path</h3>
+            <p>Learn containerization fundamentals, Docker commands, image building with Dockerfiles, and best practices for production deployments. This path covers everything from basic container concepts to advanced multi-stage builds and security practices.</p>
+        </div>
+        
+        <div class="docker-simulator">
+            <h3>🖥️ Docker Command Simulator</h3>
+            <p>Practice essential Docker commands in this interactive simulator:</p>
+            
+            <div class="terminal" id="terminal">
+                <div>Welcome to Docker command simulator! Try some commands below.</div>
+                <div>Type 'help' for available commands or use the quick commands.</div>
+                <div>&nbsp;</div>
+            </div>
+            
+            <div class="command-input">
+                <span class="prompt">docker</span>
+                <input type="text" class="command-field" id="commandInput" placeholder="ps" onkeypress="handleCommand(event)">
+            </div>
+            
+            <div class="quick-commands">
+                <button class="quick-cmd" onclick="runQuickCommand('ps')">ps</button>
+                <button class="quick-cmd" onclick="runQuickCommand('images')">images</button>
+                <button class="quick-cmd" onclick="runQuickCommand('version')">version</button>
+                <button class="quick-cmd" onclick="runQuickCommand('info')">info</button>
+                <button class="quick-cmd" onclick="runQuickCommand('pull nginx')">pull nginx</button>
+                <button class="quick-cmd" onclick="runQuickCommand('run hello-world')">run hello-world</button>
+            </div>
+        </div>
+        
+        <div class="learning-modules">
+            <div class="module-card">
+                <h3>📚 Module 1: Docker Fundamentals</h3>
+                <div class="module-meta">
+                    <span>⏱️ 40 minutes</span>
+                    <span class="difficulty beginner">Beginner</span>
+                </div>
+                <p>Introduction to containerization concepts, Docker architecture, and the differences between containers and virtual machines.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('docker', 'module', 'Docker Fundamentals: Introduction to Containerization')">📖 Start Module</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('docker', 'module')">🔍 View in Database</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>🛠️ Module 2: Installation & Commands</h3>
+                <div class="module-meta">
+                    <span>⏱️ 45 minutes</span>
+                    <span class="difficulty beginner">Beginner</span>
+                </div>
+                <p>Install Docker, learn essential commands for managing images and containers, and understand container lifecycle management.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('docker', 'module', 'Docker Installation and Basic Commands')">📖 Start Module</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('docker', 'module')">🔍 View in Database</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>🏗️ Module 3: Dockerfile & Images</h3>
+                <div class="module-meta">
+                    <span>⏱️ 55 minutes</span>
+                    <span class="difficulty intermediate">Intermediate</span>
+                </div>
+                <p>Master Dockerfile creation, image building best practices, multi-stage builds, and optimization techniques for production.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('docker', 'module', 'Dockerfile and Image Building')">📖 Start Module</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('docker', 'module')">🔍 View in Database</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>📝 Docker Fundamentals Quiz</h3>
+                <div class="module-meta">
+                    <span>⏱️ 15 minutes</span>
+                    <span class="difficulty beginner">Quiz</span>
+                </div>
+                <p>Test your understanding of Docker fundamentals, commands, and containerization concepts with this comprehensive quiz.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="window.location.href='docker-quiz.html'">🎯 Take Interactive Quiz</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('docker', 'quiz')">🔍 View Questions</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>🧪 Docker Basics Lab</h3>
+                <div class="module-meta">
+                    <span>⏱️ 60 minutes</span>
+                    <span class="difficulty beginner">Hands-on Lab</span>
+                </div>
+                <p>Hands-on practice with Docker basics including running containers, managing images, port mapping, and interactive sessions.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('docker', 'lab', 'Docker Basics Hands-on Lab')">🚀 Start Lab</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('docker', 'lab')">🔍 View Instructions</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>🎓 Docker Assessment</h3>
+                <div class="module-meta">
+                    <span>⏱️ 25 minutes</span>
+                    <span class="difficulty intermediate">Assessment</span>
+                </div>
+                <p>Comprehensive assessment covering Docker fundamentals, image building, and container management best practices.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('docker', 'quiz', 'Comprehensive Docker Assessment')">🎯 Take Assessment</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('docker', 'quiz')">🔍 View Tasks</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Docker command simulator
+        const dockerCommands = {
+            'help': 'Available commands: ps, images, version, info, pull, run, stop, rm, rmi, build, logs, exec',
+            'ps': 'CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS                    NAMES\nabc123def456   nginx:latest   "/docker-entrypoint.…"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp     web-server\ndef456ghi789   redis:alpine   "docker-entrypoint.s…"   1 day ago       Up 1 day       6379/tcp                 redis-cache',
+            'images': 'REPOSITORY    TAG       IMAGE ID       CREATED        SIZE\nnginx         latest    abc123def456   2 weeks ago    142MB\nredis         alpine    def456ghi789   3 weeks ago    32.3MB\nhello-world   latest    ghi789abc123   4 months ago   13.3kB',
+            'version': 'Client: Docker Engine - Community\n Version:           24.0.6\n API version:       1.43\n Go version:        go1.20.7\n\nServer: Docker Engine - Community\n Engine:\n  Version:          24.0.6\n  API version:      1.43 (minimum version 1.12)',
+            'info': 'Client:\n Context:    default\n Debug Mode: false\n\nServer:\n Containers: 2\n  Running: 2\n  Paused: 0\n  Stopped: 0\n Images: 3\n Server Version: 24.0.6\n Storage Driver: overlay2\n Logging Driver: json-file\n Cgroup Driver: systemd\n Kernel Version: 5.15.0\n Operating System: Ubuntu 22.04.3 LTS\n Architecture: x86_64\n CPUs: 4\n Total Memory: 7.775GiB',
+            'pull nginx': 'Using default tag: latest\nlatest: Pulling from library/nginx\na2abf6c4d29d: Pull complete\na9edb18cadd1: Pull complete\n589b7251471a: Pull complete\n186b1aaa4aa6: Pull complete\nb4df32aa5a72: Pull complete\na0bcbecc962e: Pull complete\nDigest: sha256:0d17b565c37bcbd895e9d92315a05c1c3c9a29f762b011a10c54a66cd53c9b31\nStatus: Downloaded newer image for nginx:latest\ndocker.io/library/nginx:latest',
+            'run hello-world': 'Unable to find image hello-world:latest locally\nlatest: Pulling from library/hello-world\n2db29710123e: Pull complete\nDigest: sha256:7d91b69e04a9029b99f3585aaaccae2baa80bcf318f4a5d2165a9898cd2dc0a1\nStatus: Downloaded newer image for hello-world:latest\n\nHello from Docker!\nThis message shows that your installation appears to be working correctly.\n\nTo generate this message, Docker took the following steps:\n 1. The Docker client contacted the Docker daemon.\n 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.\n 3. The Docker daemon created a new container from that image which runs the\n    executable that produces the output you are currently reading.\n 4. The Docker daemon streamed that output to the Docker client, which sent it\n    to your terminal.'
+        };
+        
+        function handleCommand(event) {
+            if (event.key === 'Enter') {
+                const command = event.target.value.trim();
+                const terminal = document.getElementById('terminal');
+                
+                // Add command to terminal
+                const commandLine = document.createElement('div');
+                commandLine.innerHTML = `<span style="color: #00ff00;">docker ${command}</span>`;
+                terminal.appendChild(commandLine);
+                
+                // Add response
+                const response = document.createElement('div');
+                response.style.color = '#ffffff';
+                response.style.marginBottom = '10px';
+                response.style.whiteSpace = 'pre-line';
+                
+                if (dockerCommands[command]) {
+                    response.textContent = dockerCommands[command];
+                } else {
+                    response.innerHTML = `<span style="color: #ff6b6b;">Error: unknown command "${command}". Type 'help' for available commands.</span>`;
+                }
+                
+                terminal.appendChild(response);
+                
+                // Clear input and scroll to bottom
+                event.target.value = '';
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        }
+        
+        function runQuickCommand(command) {
+            const input = document.getElementById('commandInput');
+            input.value = command;
+            const event = new KeyboardEvent('keypress', { key: 'Enter' });
+            handleCommand(event);
+        }
+        
+        function accessContent(category, type, title) {
+            alert(`To access "${title}":\n\n1. Open Database Admin: http://localhost:8080\n2. Login with:\n   - Server: postgres\n   - User: devops_user\n   - Password: dev_password_2024\n   - Database: devops_practice\n3. Go to learning_content table\n4. Filter by tool_category = '${category}' and content_type = '${type}'\n5. Find the item titled "${title}"\n\nA full interactive interface will be available soon!`);
+        }
+        
+        function viewInDatabase(category, type) {
+            const url = `http://localhost:8080/?server=postgres&username=devops_user&db=devops_practice&select=learning_content&where[tool_category]=${category}&where[content_type]=${type}`;
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>

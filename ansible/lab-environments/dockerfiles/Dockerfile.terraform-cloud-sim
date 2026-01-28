@@ -1,0 +1,197 @@
+# Simple Terraform Cloud API simulation for learning
+FROM node:18-alpine
+
+WORKDIR /app
+
+RUN npm init -y && \
+    npm install express body-parser uuid
+
+COPY <<EOF /app/server.js
+const express = require('express');
+const bodyParser = require('body-parser');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
+
+const app = express();
+const PORT = 8080;
+
+app.use(bodyParser.json());
+
+// Simple in-memory storage
+let workspaces = {};
+let runs = {};
+let states = {};
+
+// Ensure data directory exists
+const dataDir = '/app/data';
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Load data on startup
+try {
+    if (fs.existsSync(path.join(dataDir, 'workspaces.json'))) {
+        workspaces = JSON.parse(fs.readFileSync(path.join(dataDir, 'workspaces.json'), 'utf8'));
+    }
+    if (fs.existsSync(path.join(dataDir, 'runs.json'))) {
+        runs = JSON.parse(fs.readFileSync(path.join(dataDir, 'runs.json'), 'utf8'));
+    }
+    if (fs.existsSync(path.join(dataDir, 'states.json'))) {
+        states = JSON.parse(fs.readFileSync(path.join(dataDir, 'states.json'), 'utf8'));
+    }
+} catch (error) {
+    console.log('Starting with empty data store');
+}
+
+// Save data periodically
+const saveData = () => {
+    fs.writeFileSync(path.join(dataDir, 'workspaces.json'), JSON.stringify(workspaces, null, 2));
+    fs.writeFileSync(path.join(dataDir, 'runs.json'), JSON.stringify(runs, null, 2));
+    fs.writeFileSync(path.join(dataDir, 'states.json'), JSON.stringify(states, null, 2));
+};
+
+setInterval(saveData, 30000); // Save every 30 seconds
+
+// API Routes
+app.get('/api/v2/organizations/:org/workspaces', (req, res) => {
+    const orgWorkspaces = Object.values(workspaces).filter(ws => ws.organization === req.params.org);
+    res.json({
+        data: orgWorkspaces.map(ws => ({
+            id: ws.id,
+            type: 'workspaces',
+            attributes: {
+                name: ws.name,
+                'terraform-version': ws.terraformVersion || '1.6.0',
+                'working-directory': ws.workingDirectory || '',
+                'execution-mode': 'remote'
+            }
+        }))
+    });
+});
+
+app.post('/api/v2/organizations/:org/workspaces', (req, res) => {
+    const workspace = {
+        id: uuidv4(),
+        organization: req.params.org,
+        name: req.body.data.attributes.name,
+        terraformVersion: req.body.data.attributes['terraform-version'] || '1.6.0',
+        workingDirectory: req.body.data.attributes['working-directory'] || '',
+        createdAt: new Date().toISOString()
+    };
+    
+    workspaces[workspace.id] = workspace;
+    
+    res.status(201).json({
+        data: {
+            id: workspace.id,
+            type: 'workspaces',
+            attributes: {
+                name: workspace.name,
+                'terraform-version': workspace.terraformVersion,
+                'working-directory': workspace.workingDirectory,
+                'execution-mode': 'remote'
+            }
+        }
+    });
+});
+
+app.get('/api/v2/workspaces/:id', (req, res) => {
+    const workspace = workspaces[req.params.id];
+    if (!workspace) {
+        return res.status(404).json({ errors: [{ detail: 'Workspace not found' }] });
+    }
+    
+    res.json({
+        data: {
+            id: workspace.id,
+            type: 'workspaces',
+            attributes: {
+                name: workspace.name,
+                'terraform-version': workspace.terraformVersion,
+                'working-directory': workspace.workingDirectory,
+                'execution-mode': 'remote'
+            }
+        }
+    });
+});
+
+// State management
+app.get('/api/v2/workspaces/:id/current-state-version', (req, res) => {
+    const state = states[req.params.id];
+    if (!state) {
+        return res.status(404).json({ errors: [{ detail: 'No state found' }] });
+    }
+    
+    res.json({
+        data: {
+            id: state.id,
+            type: 'state-versions',
+            attributes: {
+                serial: state.serial,
+                'terraform-version': state.terraformVersion,
+                'created-at': state.createdAt
+            }
+        }
+    });
+});
+
+app.post('/api/v2/workspaces/:id/state-versions', (req, res) => {
+    const stateId = uuidv4();
+    const state = {
+        id: stateId,
+        workspaceId: req.params.id,
+        serial: (states[req.params.id]?.serial || 0) + 1,
+        terraformVersion: '1.6.0',
+        createdAt: new Date().toISOString(),
+        data: req.body
+    };
+    
+    states[req.params.id] = state;
+    
+    res.status(201).json({
+        data: {
+            id: state.id,
+            type: 'state-versions',
+            attributes: {
+                serial: state.serial,
+                'terraform-version': state.terraformVersion,
+                'created-at': state.createdAt
+            }
+        }
+    });
+});
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'healthy', service: 'terraform-cloud-sim' });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+    res.json({
+        message: 'Terraform Cloud API Simulation',
+        version: '1.0.0',
+        endpoints: [
+            'GET /api/v2/organizations/:org/workspaces',
+            'POST /api/v2/organizations/:org/workspaces',
+            'GET /api/v2/workspaces/:id',
+            'GET /api/v2/workspaces/:id/current-state-version',
+            'POST /api/v2/workspaces/:id/state-versions'
+        ]
+    });
+});
+
+process.on('SIGTERM', () => {
+    console.log('Saving data before shutdown...');
+    saveData();
+    process.exit(0);
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(\`Terraform Cloud Simulation API running on port \${PORT}\`);
+});
+EOF
+
+EXPOSE 8080
+CMD ["node", "server.js"]

@@ -1,0 +1,21 @@
+# Logstash configuration for DevOps Practice Environment
+node.name: "devops-practice-logstash"
+path.data: /usr/share/logstash/data
+path.logs: /usr/share/logstash/logs
+path.settings: /usr/share/logstash/config
+path.config: /usr/share/logstash/pipeline
+
+# Pipeline settings
+pipeline.workers: 2
+pipeline.batch.size: 125
+pipeline.batch.delay: 50
+
+# Monitoring
+monitoring.enabled: false
+
+# HTTP API
+http.host: "0.0.0.0"
+http.port: 9600
+
+# Logging
+log.level: info

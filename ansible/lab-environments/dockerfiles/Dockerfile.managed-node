@@ -1,0 +1,46 @@
+# Managed Node Dockerfile (Ubuntu-based)
+FROM ubuntu:20.04
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install SSH server and common packages
+RUN apt-get update && apt-get install -y \
+    openssh-server \
+    python3 \
+    python3-pip \
+    curl \
+    wget \
+    vim \
+    nano \
+    net-tools \
+    systemctl \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure SSH
+RUN mkdir /var/run/sshd \
+    && echo 'root:ansible' | chpasswd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# Create SSH directory for root
+RUN mkdir -p /root/.ssh \
+    && chmod 700 /root/.ssh
+
+# Create ansible user
+RUN useradd -m -s /bin/bash ansible \
+    && echo 'ansible:ansible' | chpasswd \
+    && usermod -aG sudo ansible \
+    && echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Create SSH directory for ansible user
+RUN mkdir -p /home/ansible/.ssh \
+    && chown ansible:ansible /home/ansible/.ssh \
+    && chmod 700 /home/ansible/.ssh
+
+# Expose SSH port
+EXPOSE 22
+
+# Start SSH service
+CMD ["/usr/sbin/sshd", "-D"]

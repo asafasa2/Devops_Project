@@ -1,0 +1,104 @@
+# Ansible Practice Lab Environment
+# Docker Compose configuration for hands-on Ansible learning
+
+version: '3.8'
+
+services:
+  # Ansible Control Node
+  ansible-control:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.ansible-control
+    container_name: ansible-control
+    hostname: ansible-control
+    networks:
+      - ansible-lab
+    volumes:
+      - ansible-workspace:/workspace
+      - ansible-ssh-keys:/root/.ssh
+      - ./lab-files:/lab-files:ro
+    environment:
+      - ANSIBLE_HOST_KEY_CHECKING=False
+      - ANSIBLE_INVENTORY=/workspace/inventory
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    depends_on:
+      - web-server-1
+      - web-server-2
+      - db-server-1
+
+  # Web Server 1 - Ubuntu
+  web-server-1:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.managed-node
+    container_name: web-server-1
+    hostname: web-server-1
+    networks:
+      - ansible-lab
+    volumes:
+      - ansible-ssh-keys:/root/.ssh:ro
+    environment:
+      - SSH_ENABLE_ROOT=true
+    ports:
+      - "8081:80"
+
+  # Web Server 2 - Ubuntu  
+  web-server-2:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.managed-node
+    container_name: web-server-2
+    hostname: web-server-2
+    networks:
+      - ansible-lab
+    volumes:
+      - ansible-ssh-keys:/root/.ssh:ro
+    environment:
+      - SSH_ENABLE_ROOT=true
+    ports:
+      - "8082:80"
+
+  # Database Server - Ubuntu
+  db-server-1:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.managed-node
+    container_name: db-server-1
+    hostname: db-server-1
+    networks:
+      - ansible-lab
+    volumes:
+      - ansible-ssh-keys:/root/.ssh:ro
+      - db-data:/var/lib/mysql
+    environment:
+      - SSH_ENABLE_ROOT=true
+    ports:
+      - "3306:3306"
+
+  # CentOS Server for multi-OS practice
+  centos-server:
+    build:
+      context: ./dockerfiles
+      dockerfile: Dockerfile.centos-node
+    container_name: centos-server
+    hostname: centos-server
+    networks:
+      - ansible-lab
+    volumes:
+      - ansible-ssh-keys:/root/.ssh:ro
+    environment:
+      - SSH_ENABLE_ROOT=true
+
+networks:
+  ansible-lab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  ansible-workspace:
+  ansible-ssh-keys:
+  db-data:

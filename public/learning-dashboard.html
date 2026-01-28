@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOps Learning Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .learning-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .learning-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .learning-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .learning-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .learning-card p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .content-stats {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .content-stats h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+            margin: 50px 0;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Main Dashboard</a>
+        
+        <div class="header">
+            <h1>🎓 DevOps Learning Dashboard</h1>
+            <p>Access all learning modules, quizzes, labs, and assessments</p>
+        </div>
+        
+        <div id="loading" class="loading">
+            Loading learning content...
+        </div>
+        
+        <div id="error" class="error" style="display: none;">
+            <h4>Unable to load learning content</h4>
+            <p>Please make sure the learning service is running at <a href="http://localhost:4001/health" target="_blank">http://localhost:4001</a></p>
+        </div>
+        
+        <div id="learning-content" class="learning-grid" style="display: none;">
+            <!-- Content will be loaded dynamically -->
+        </div>
+    </div>
+    
+    <script>
+        // Learning content data structure
+        const learningPaths = {
+            docker: {
+                title: '🐳 Docker Containerization',
+                description: 'Master containerization with Docker from basics to advanced image building and management.',
+                color: '#0db7ed',
+                expectedModules: 3,
+                expectedQuizzes: 1,
+                expectedLabs: 1,
+                expectedAssessments: 1
+            },
+            ansible: {
+                title: '🔧 Ansible Automation',
+                description: 'Learn configuration management and automation with Ansible playbooks, roles, and best practices.',
+                color: '#ee0000',
+                expectedModules: 5,
+                expectedQuizzes: 3,
+                expectedLabs: 3,
+                expectedAssessments: 1
+            },
+            terraform: {
+                title: '🏗️ Terraform Infrastructure',
+                description: 'Infrastructure as Code with Terraform, from basics to advanced state management and modules.',
+                color: '#623ce4',
+                expectedModules: 6,
+                expectedQuizzes: 3,
+                expectedLabs: 3,
+                expectedAssessments: 1
+            },
+            jenkins: {
+                title: '⚙️ Jenkins CI/CD',
+                description: 'Continuous Integration and Deployment with Jenkins pipelines and automation.',
+                color: '#d33833',
+                expectedModules: 3,
+                expectedQuizzes: 1,
+                expectedLabs: 1,
+                expectedAssessments: 1
+            },
+            kubernetes: {
+                title: '☸️ Kubernetes (CKA)',
+                description: 'Kubernetes administration and CKA certification preparation with hands-on cluster management.',
+                color: '#326ce5',
+                expectedModules: 3,
+                expectedQuizzes: 1,
+                expectedLabs: 1,
+                expectedAssessments: 1
+            }
+        };
+        
+        // Load learning content from API
+        async function loadLearningContent() {
+            try {
+                // For now, we'll create the interface based on what we know is in the database
+                // In a real implementation, this would fetch from the API
+                displayLearningContent();
+            } catch (error) {
+                console.error('Error loading learning content:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+        
+        function displayLearningContent() {
+            const container = document.getElementById('learning-content');
+            const loading = document.getElementById('loading');
+            
+            // Create cards for each learning path
+            Object.entries(learningPaths).forEach(([key, path]) => {
+                const card = createLearningCard(key, path);
+                container.appendChild(card);
+            });
+            
+            loading.style.display = 'none';
+            container.style.display = 'grid';
+        }
+        
+        function createLearningCard(key, path) {
+            const card = document.createElement('div');
+            card.className = 'learning-card';
+            
+            card.innerHTML = `
+                <h3>${path.title}</h3>
+                <p>${path.description}</p>
+                
+                <div class="content-stats">
+                    <h4>📚 Available Content</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span>Modules:</span>
+                            <span>${path.expectedModules}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Quizzes:</span>
+                            <span>${path.expectedQuizzes}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Labs:</span>
+                            <span>${path.expectedLabs}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Assessments:</span>
+                            <span>${path.expectedAssessments}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="startLearningPath('${key}')">
+                        🚀 Start Learning
+                    </button>
+                    <button class="btn btn-secondary" onclick="viewContent('${key}')">
+                        📋 View Content
+                    </button>
+                    <button class="btn btn-success" onclick="takePracticeExam('${key}')">
+                        🎯 Practice Exam
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+        
+        function startLearningPath(technology) {
+            // Direct links to interactive learning interfaces
+            const learningPaths = {
+                'docker': 'learning-docker.html',
+                'ansible': 'learning-ansible.html', 
+                'kubernetes': 'learning-kubernetes.html',
+                'terraform': 'learning-terraform.html',
+                'jenkins': 'learning-jenkins.html'
+            };
+            
+            window.location.href = learningPaths[technology] || 'learning-dashboard.html';
+        }
+        
+        function viewContent(technology) {
+            // Open database admin filtered by technology
+            const url = `http://localhost:8080/?server=postgres&username=devops_user&db=devops_practice&select=learning_content&where[tool_category]=${technology}`;
+            window.open(url, '_blank');
+        }
+        
+        function takePracticeExam(technology) {
+            // Direct links to interactive quizzes and simulators
+            const examPaths = {
+                'docker': 'docker-quiz.html',
+                'ansible': 'ansible-quiz.html',
+                'kubernetes': 'cka-simulator.html',
+                'terraform': 'learning-terraform.html?quiz=true',
+                'jenkins': 'learning-jenkins.html?quiz=true'
+            };
+            
+            if (examPaths[technology]) {
+                window.location.href = examPaths[technology];
+            } else {
+                alert(`Interactive ${technology} exam will be available soon! For now, you can access the content through the database or start the learning path.`);
+            }
+        }
+        
+        // Load content when page loads
+        document.addEventListener('DOMContentLoaded', loadLearningContent);
+    </script>
+</body>
+</html>

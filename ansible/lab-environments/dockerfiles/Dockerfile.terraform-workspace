@@ -1,0 +1,52 @@
+# Terraform Learning Workspace
+FROM hashicorp/terraform:1.6
+
+# Install additional tools
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    jq \
+    vim \
+    nano \
+    tree \
+    docker-cli \
+    python3 \
+    py3-pip \
+    make
+
+# Install terraform-docs for documentation
+RUN curl -sSLo ./terraform-docs.tar.gz https://terraform-docs.io/dl/v0.16.0/terraform-docs-v0.16.0-$(uname)-amd64.tar.gz && \
+    tar -xzf terraform-docs.tar.gz && \
+    chmod +x terraform-docs && \
+    mv terraform-docs /usr/local/bin/terraform-docs && \
+    rm terraform-docs.tar.gz
+
+# Install tflint for linting
+RUN curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+# Install checkov for security scanning
+RUN pip3 install checkov
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Copy lab exercises and templates
+COPY lab-files/terraform-exercises/ /workspace/
+
+# Set up bash prompt and aliases
+RUN echo 'export PS1="\[\033[1;32m\]terraform-lab\[\033[0m\]:\[\033[1;34m\]\w\[\033[0m\]$ "' >> /root/.bashrc && \
+    echo 'alias tf="terraform"' >> /root/.bashrc && \
+    echo 'alias tfa="terraform apply"' >> /root/.bashrc && \
+    echo 'alias tfp="terraform plan"' >> /root/.bashrc && \
+    echo 'alias tfi="terraform init"' >> /root/.bashrc && \
+    echo 'alias tfd="terraform destroy"' >> /root/.bashrc && \
+    echo 'alias tfv="terraform validate"' >> /root/.bashrc && \
+    echo 'alias tff="terraform fmt"' >> /root/.bashrc
+
+# Create helpful scripts
+RUN echo '#!/bin/bash\necho "=== Terraform Lab Helper ==="\necho "Available commands:"\necho "  tf     - terraform"\necho "  tfi    - terraform init"\necho "  tfp    - terraform plan"\necho "  tfa    - terraform apply"\necho "  tfd    - terraform destroy"\necho "  tfv    - terraform validate"\necho "  tff    - terraform fmt"\necho ""\necho "Lab exercises:"\nls -la /workspace/\necho ""\necho "Current directory: $(pwd)"' > /usr/local/bin/lab-help && \
+    chmod +x /usr/local/bin/lab-help
+
+# Set default command
+CMD ["bash"]

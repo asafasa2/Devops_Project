@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CKA - Kubernetes Learning Path</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #326ce5 0%, #1a4480 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .cka-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .cka-info h3 {
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .exam-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .exam-detail {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .learning-modules {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .module-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .module-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .module-card h3 {
+            color: #326ce5;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+        
+        .module-card p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .module-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        .difficulty {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .difficulty.beginner {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .difficulty.intermediate {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .difficulty.advanced {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #326ce5 0%, #1a4480 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .kubectl-simulator {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .kubectl-simulator h3 {
+            color: #326ce5;
+            margin-bottom: 20px;
+        }
+        
+        .terminal {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 20px;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .command-input {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .prompt {
+            color: #00ff00;
+            margin-right: 10px;
+        }
+        
+        .command-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .quick-commands {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .quick-cmd {
+            background: #e9ecef;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .quick-cmd:hover {
+            background: #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="learning-dashboard.html" class="back-link">← Back to Learning Dashboard</a>
+        
+        <div class="header">
+            <h1>☸️ Kubernetes (CKA) Learning Path</h1>
+            <p>Master Kubernetes administration and prepare for the Certified Kubernetes Administrator exam</p>
+        </div>
+        
+        <div class="cka-info">
+            <h3>🎯 CKA Certification Information</h3>
+            <p>The Certified Kubernetes Administrator (CKA) exam is a performance-based test that requires hands-on experience with Kubernetes cluster administration.</p>
+            
+            <div class="exam-details">
+                <div class="exam-detail">
+                    <h4>⏱️ Duration</h4>
+                    <p>2 Hours</p>
+                </div>
+                <div class="exam-detail">
+                    <h4>📊 Passing Score</h4>
+                    <p>66%</p>
+                </div>
+                <div class="exam-detail">
+                    <h4>💻 Format</h4>
+                    <p>Performance-based</p>
+                </div>
+                <div class="exam-detail">
+                    <h4>📚 Resources</h4>
+                    <p>kubernetes.io docs</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="kubectl-simulator">
+            <h3>🖥️ kubectl Command Simulator</h3>
+            <p>Practice essential kubectl commands in this interactive simulator:</p>
+            
+            <div class="terminal" id="terminal">
+                <div>Welcome to kubectl simulator! Try some commands below.</div>
+                <div>Type 'help' for available commands or use the quick commands.</div>
+                <div>&nbsp;</div>
+            </div>
+            
+            <div class="command-input">
+                <span class="prompt">kubectl</span>
+                <input type="text" class="command-field" id="commandInput" placeholder="get pods" onkeypress="handleCommand(event)">
+            </div>
+            
+            <div class="quick-commands">
+                <button class="quick-cmd" onclick="runQuickCommand('get nodes')">get nodes</button>
+                <button class="quick-cmd" onclick="runQuickCommand('get pods')">get pods</button>
+                <button class="quick-cmd" onclick="runQuickCommand('get services')">get services</button>
+                <button class="quick-cmd" onclick="runQuickCommand('cluster-info')">cluster-info</button>
+                <button class="quick-cmd" onclick="runQuickCommand('get namespaces')">get namespaces</button>
+                <button class="quick-cmd" onclick="runQuickCommand('version')">version</button>
+            </div>
+        </div>
+        
+        <div class="learning-modules">
+            <div class="module-card">
+                <h3>📚 Module 1: Kubernetes Fundamentals</h3>
+                <div class="module-meta">
+                    <span>⏱️ 60 minutes</span>
+                    <span class="difficulty beginner">Beginner</span>
+                </div>
+                <p>Learn Kubernetes architecture, core components, and essential concepts. Understand the control plane, worker nodes, and how they work together.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('kubernetes', 'module', 'Kubernetes Fundamentals for CKA')">📖 Start Module</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('kubernetes', 'module')">🔍 View in Database</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>🛠️ Module 2: Cluster Installation</h3>
+                <div class="module-meta">
+                    <span>⏱️ 75 minutes</span>
+                    <span class="difficulty intermediate">Intermediate</span>
+                </div>
+                <p>Master cluster installation using kubeadm, configure networking with CNI plugins, and join worker nodes to create a production-ready cluster.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('kubernetes', 'module', 'CKA: Cluster Installation and Configuration')">📖 Start Module</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('kubernetes', 'module')">🔍 View in Database</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>⚙️ Module 3: Workloads & Scheduling</h3>
+                <div class="module-meta">
+                    <span>⏱️ 80 minutes</span>
+                    <span class="difficulty intermediate">Intermediate</span>
+                </div>
+                <p>Understand pods, deployments, services, and advanced scheduling concepts including node affinity, taints, and tolerations.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('kubernetes', 'module', 'CKA: Workloads and Scheduling')">📖 Start Module</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('kubernetes', 'module')">🔍 View in Database</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>📝 CKA Fundamentals Quiz</h3>
+                <div class="module-meta">
+                    <span>⏱️ 20 minutes</span>
+                    <span class="difficulty beginner">Quiz</span>
+                </div>
+                <p>Test your understanding of Kubernetes fundamentals with this comprehensive quiz covering architecture, components, and basic operations.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="window.location.href='cka-quiz.html'">🎯 Take Interactive Quiz</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('kubernetes', 'quiz')">🔍 View in Database</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>🧪 CKA Cluster Setup Lab</h3>
+                <div class="module-meta">
+                    <span>⏱️ 120 minutes</span>
+                    <span class="difficulty intermediate">Hands-on Lab</span>
+                </div>
+                <p>Hands-on lab to set up a complete Kubernetes cluster using kubeadm, configure networking, and deploy test applications.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="accessContent('kubernetes', 'lab', 'CKA Cluster Setup Lab')">🚀 Start Lab</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('kubernetes', 'lab')">🔍 View Instructions</button>
+                </div>
+            </div>
+            
+            <div class="module-card">
+                <h3>🎓 CKA Practice Assessment</h3>
+                <div class="module-meta">
+                    <span>⏱️ 120 minutes</span>
+                    <span class="difficulty advanced">Practice Exam</span>
+                </div>
+                <p>Comprehensive practice exam simulating the real CKA exam format with performance-based tasks and time constraints.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="window.location.href='cka-simulator.html'">🚀 Start CKA Simulator</button>
+                    <button class="btn btn-secondary" onclick="viewInDatabase('kubernetes', 'quiz')">🔍 View Tasks</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // kubectl command simulator
+        const kubectlCommands = {
+            'help': 'Available commands: get nodes, get pods, get services, cluster-info, get namespaces, version, describe, create, apply, delete',
+            'get nodes': 'NAME           STATUS   ROLES           AGE   VERSION\nmaster-node    Ready    control-plane   5d    v1.28.0\nworker-node-1  Ready    <none>          5d    v1.28.0\nworker-node-2  Ready    <none>          5d    v1.28.0',
+            'get pods': 'NAME                     READY   STATUS    RESTARTS   AGE\nnginx-deployment-abc123  1/1     Running   0          2d\nredis-pod-def456         1/1     Running   1          1d\napi-server-ghi789        1/1     Running   0          3h',
+            'get services': 'NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE\nkubernetes   ClusterIP   10.96.0.1       <none>        443/TCP   5d\nnginx-svc    NodePort    10.96.123.45    <none>        80:30080/TCP   2d',
+            'cluster-info': 'Kubernetes control plane is running at https://192.168.1.100:6443\nCoreDNS is running at https://192.168.1.100:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy',
+            'get namespaces': 'NAME              STATUS   AGE\ndefault           Active   5d\nkube-node-lease   Active   5d\nkube-public       Active   5d\nkube-system       Active   5d',
+            'version': 'Client Version: version.Info{Major:"1", Minor:"28", GitVersion:"v1.28.0"}\nServer Version: version.Info{Major:"1", Minor:"28", GitVersion:"v1.28.0"}'
+        };
+        
+        function handleCommand(event) {
+            if (event.key === 'Enter') {
+                const command = event.target.value.trim();
+                const terminal = document.getElementById('terminal');
+                
+                // Add command to terminal
+                const commandLine = document.createElement('div');
+                commandLine.innerHTML = `<span style="color: #00ff00;">kubectl ${command}</span>`;
+                terminal.appendChild(commandLine);
+                
+                // Add response
+                const response = document.createElement('div');
+                response.style.color = '#ffffff';
+                response.style.marginBottom = '10px';
+                response.style.whiteSpace = 'pre-line';
+                
+                if (kubectlCommands[command]) {
+                    response.textContent = kubectlCommands[command];
+                } else {
+                    response.innerHTML = `<span style="color: #ff6b6b;">Error: unknown command "${command}". Type 'help' for available commands.</span>`;
+                }
+                
+                terminal.appendChild(response);
+                
+                // Clear input and scroll to bottom
+                event.target.value = '';
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        }
+        
+        function runQuickCommand(command) {
+            const input = document.getElementById('commandInput');
+            input.value = command;
+            const event = new KeyboardEvent('keypress', { key: 'Enter' });
+            handleCommand(event);
+        }
+        
+        function accessContent(category, type, title) {
+            // For now, show an alert with instructions
+            alert(`To access "${title}":\n\n1. Open Database Admin: http://localhost:8080\n2. Login with:\n   - Server: postgres\n   - User: devops_user\n   - Password: dev_password_2024\n   - Database: devops_practice\n3. Go to learning_content table\n4. Filter by tool_category = '${category}' and content_type = '${type}'\n5. Find the item titled "${title}"\n\nA full interactive interface will be available soon!`);
+        }
+        
+        function viewInDatabase(category, type) {
+            const url = `http://localhost:8080/?server=postgres&username=devops_user&db=devops_practice&select=learning_content&where[tool_category]=${category}&where[content_type]=${type}`;
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CKA Practice Exam Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        
+        .exam-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #2d2d30;
+            border-right: 1px solid #3e3e42;
+            overflow-y: auto;
+        }
+        
+        .exam-header {
+            padding: 20px;
+            background: #007acc;
+            color: white;
+            text-align: center;
+        }
+        
+        .timer {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .progress {
+            font-size: 0.9rem;
+        }
+        
+        .task-list {
+            padding: 20px;
+        }
+        
+        .task-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #3c3c3c;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-left: 4px solid #666;
+        }
+        
+        .task-item:hover {
+            background: #4a4a4a;
+        }
+        
+        .task-item.active {
+            background: #007acc;
+            border-left-color: #ffffff;
+        }
+        
+        .task-item.completed {
+            border-left-color: #4CAF50;
+            background: #2d4a2d;
+        }
+        
+        .task-number {
+            font-weight: bold;
+            color: #007acc;
+        }
+        
+        .task-item.active .task-number {
+            color: white;
+        }
+        
+        .task-points {
+            float: right;
+            color: #ffa500;
+            font-size: 0.9rem;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .task-header {
+            padding: 20px;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .task-title {
+            font-size: 1.3rem;
+            color: #007acc;
+            margin-bottom: 10px;
+        }
+        
+        .context-info {
+            background: #3c3c3c;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .task-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        .task-description {
+            background: #2d2d30;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .terminal-container {
+            flex: 1;
+            background: #000;
+            border-radius: 5px;
+            padding: 20px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            cursor: text;
+        }
+        
+        .terminal-container:focus-within {
+            outline: 2px solid #007acc;
+        }
+        
+        .terminal-output {
+            color: #00ff00;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+        }
+        
+        .command-line {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .prompt {
+            color: #00ff00;
+            margin-right: 10px;
+        }
+        
+        .command-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            outline: none;
+            caret-color: #00ff00;
+        }
+        
+        .command-input:focus {
+            outline: none;
+        }
+        
+        .task-controls {
+            padding: 20px;
+            background: #2d2d30;
+            border-top: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        
+        .btn-primary {
+            background: #007acc;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #005a9e;
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .context-switcher {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .context-btn {
+            padding: 8px 15px;
+            background: #3c3c3c;
+            border: none;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .context-btn.active {
+            background: #007acc;
+        }
+        
+        .context-btn:hover {
+            background: #4a4a4a;
+        }
+        
+        .context-btn.active:hover {
+            background: #005a9e;
+        }
+        
+        .file-editor {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .file-editor.active {
+            display: block;
+        }
+        
+        .file-editor textarea {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            color: #00ff00;
+            border: none;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+        
+        .file-path {
+            color: #ffa500;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="exam-container">
+        <div class="sidebar">
+            <div class="exam-header">
+                <div class="timer" id="timer">02:00:00</div>
+                <div class="progress" id="progress">0/17 Tasks Completed</div>
+            </div>
+            
+            <div class="task-list" id="taskList">
+                <!-- Tasks will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="task-header">
+                <div class="task-title" id="taskTitle">Task 1: Kubeconfig Information Extraction</div>
+                <div class="context-info">
+                    <strong>Context:</strong> <span id="currentContext">ssh cka9412</span>
+                </div>
+            </div>
+            
+            <div class="task-content">
+                <div class="task-description" id="taskDescription">
+                    <!-- Task description will be populated by JavaScript -->
+                </div>
+                
+                <div class="context-switcher">
+                    <button class="context-btn active" onclick="switchContext('terminal')">Terminal</button>
+                    <button class="context-btn" onclick="switchContext('files')">Files</button>
+                    <button class="context-btn" onclick="switchContext('notes')">Notes</button>
+                </div>
+                
+                <div id="terminalView" class="terminal-container" onclick="focusTerminal()">
+                    <div class="terminal-output" id="terminalOutput">
+Welcome to CKA Practice Exam Simulator
+Current context: cka9412
+Type 'help' for available commands or start working on your task.
+
+                    </div>
+                    <div class="command-line">
+                        <span class="prompt" id="prompt">root@cka9412:~#</span>
+                        <input type="text" class="command-input" id="commandInput" onkeypress="handleCommand(event)" placeholder="Enter command...">
+                    </div>
+                </div>
+                
+                <div id="filesView" class="file-editor">
+                    <div class="file-path">/opt/course/1/kubeconfig</div>
+                    <textarea id="kubeconfigFile" readonly>apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTi...
+    server: https://127.0.0.1:6443
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: kubernetes-admin
+  name: kubernetes-admin@kubernetes
+- context:
+    cluster: kubernetes
+    user: account-0027
+  name: account-0027@kubernetes
+- context:
+    cluster: kubernetes
+    user: system:node:worker1
+  name: system:node:worker1@kubernetes
+current-context: kubernetes-admin@kubernetes
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin
+  user:
+    client-certificate-data: LS0tLS1CRUdJTi...
+    client-key-data: LS0tLS1CRUdJTi...
+- name: account-0027
+  user:
+    client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURJVENDQWdtZ0F3SUJBZ0lJTnNkSGFBWVBHVGt3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TkRBeE1qZ3hNekEwTURCYUZ3MHlOVEF4TWpneE16QTBNREJhTURReApGekFWQmdOVkJBb1REbk41YzNSbGJUcHRZWE4wWlhKek1Sa3dGd1lEVlFRREV4QnJkV0psY201bGRHVnpMV0ZrCmJXbHVNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXNxVGhOVGhxVGhOVGhxVGgKTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocQpUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UCmhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGgKTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocQpUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UCmhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGgKTlJJREFRQUJvMUl3VURBT0JnTlZIUThCQWY4RUJBTUNCYUF3RXdZRFZSMGxCQXd3Q2dZSUt3WUJCUVVIQXdJdwpEQVlEVlIwVEFRSC9CQUl3QURBZkJnTlZIU01FR0RBV2dCUXNxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGgKTlJJREFRQUJvMUl3VURBT0JnTlZIUThCQWY4RUJBTUNCYUF3RXdZRFZSMGxCQXd3Q2dZSUt3WUJCUVVIQXdJdwpEQVlEVlIwVEFRSC9CQUl3QURBZkJnTlZIU01FR0RBV2dCUXNxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGgKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    client-key-data: LS0tLS1CRUdJTi...
+- name: system:node:worker1
+  user:
+    client-certificate-data: LS0tLS1CRUdJTi...
+    client-key-data: LS0tLS1CRUdJTi...</textarea>
+                </div>
+                
+                <div id="notesView" class="file-editor">
+                    <div class="file-path">Your Notes</div>
+                    <textarea id="notesArea" placeholder="Take notes here..."></textarea>
+                </div>
+            </div>
+            
+            <div class="task-controls">
+                <div>
+                    <button class="btn btn-secondary" onclick="previousTask()">← Previous</button>
+                    <button class="btn btn-primary" onclick="nextTask()">Next →</button>
+                </div>
+                <div>
+                    <button class="btn btn-success" onclick="markCompleted()">Mark Completed</button>
+                    <button class="btn btn-secondary" onclick="showSolution()">Show Solution</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // CKA Practice Exam Tasks
+        const examTasks = [
+            {
+                id: 1,
+                title: "Kubeconfig Information Extraction",
+                points: 4,
+                context: "ssh cka9412",
+                description: `You're asked to extract the following information out of kubeconfig file /opt/course/1/kubeconfig on cka9412:
+
+• Write all kubeconfig context names into /opt/course/1/contexts, one per line
+• Write the name of the current context into /opt/course/1/current-context  
+• Write the client-certificate of user account-0027 base64-decoded into /opt/course/1/cert`,
+                solution: [
+                    "kubectl config view --kubeconfig=/opt/course/1/kubeconfig -o jsonpath='{.contexts[*].name}' | tr ' ' '\\n' > /opt/course/1/contexts",
+                    "kubectl config view --kubeconfig=/opt/course/1/kubeconfig -o jsonpath='{.current-context}' > /opt/course/1/current-context",
+                    "kubectl config view --kubeconfig=/opt/course/1/kubeconfig -o jsonpath='{.users[?(@.name==\"account-0027\")].user.client-certificate-data}' | base64 -d > /opt/course/1/cert"
+                ]
+            },
+            {
+                id: 2,
+                title: "MinIO Operator Installation",
+                points: 6,
+                context: "ssh cka7968",
+                description: `Install the MinIO Operator using Helm in Namespace minio. Then configure and create the Tenant CRD:
+
+• Create Namespace minio
+• Install Helm chart minio/operator into the new Namespace. The Helm Release should be called minio-operator
+• Update the Tenant resource in /opt/course/2/minio-tenant.yaml to include enableSFTP: true under features
+• Create the Tenant resource from /opt/course/2/minio-tenant.yaml`,
+                solution: [
+                    "kubectl create namespace minio",
+                    "helm repo add minio https://operator.min.io/",
+                    "helm install minio-operator minio/operator -n minio",
+                    "# Edit /opt/course/2/minio-tenant.yaml to add enableSFTP: true",
+                    "kubectl apply -f /opt/course/2/minio-tenant.yaml"
+                ]
+            },
+            {
+                id: 3,
+                title: "Scale Down Pods",
+                points: 3,
+                context: "ssh cka3962",
+                description: `There are two Pods named o3db-* in Namespace project-h800. The Project H800 management asked you to scale these down to one replica to save resources.`,
+                solution: [
+                    "kubectl get pods -n project-h800 | grep o3db",
+                    "kubectl get deployment -n project-h800",
+                    "kubectl scale deployment o3db-deployment --replicas=1 -n project-h800"
+                ]
+            },
+            {
+                id: 4,
+                title: "HorizontalPodAutoscaler Setup",
+                points: 8,
+                context: "ssh cka5774",
+                description: `Previously the application api-gateway used some external autoscaler which should now be replaced with a HorizontalPodAutoscaler (HPA). The application has been deployed to Namespaces api-gateway-staging and api-gateway-prod.
+
+Using the Kustomize config at /opt/course/5/api-gateway do the following:
+• Remove the ConfigMap horizontal-scaling-config completely
+• Add HPA named api-gateway for the Deployment api-gateway with min 2 and max 4 replicas. It should scale at 50% average CPU utilisation
+• In prod the HPA should have max 6 replicas
+• Apply your changes for staging and prod so they're reflected in the cluster`,
+                solution: [
+                    "cd /opt/course/5/api-gateway",
+                    "# Remove ConfigMap from kustomization.yaml",
+                    "# Create HPA resource files",
+                    "kubectl kustomize staging | kubectl apply -f -",
+                    "kubectl kustomize prod | kubectl apply -f -"
+                ]
+            },
+            {
+                id: 5,
+                title: "PersistentVolume and PVC",
+                points: 5,
+                context: "ssh cka9412",
+                description: `Create a new PersistentVolume named safari-pv. It should have a capacity of 2Gi, accessMode ReadWriteOnce, hostPath /Volumes/Data and no storageClassName defined.
+
+Next create a new PersistentVolumeClaim in Namespace project-t230 named safari-pvc. It should request 2Gi storage, accessMode ReadWriteOnce and should not define a storageClassName. The PVC should bound to the PV correctly.
+
+Finally create a new Deployment safari in Namespace project-t230 which mounts that volume at /tmp/safari-data. The Pods of that Deployment should be of image httpd:2-alpine.`,
+                solution: [
+                    "# Create PV YAML",
+                    "kubectl apply -f pv.yaml",
+                    "kubectl create namespace project-t230",
+                    "# Create PVC YAML", 
+                    "kubectl apply -f pvc.yaml -n project-t230",
+                    "# Create Deployment YAML with volume mount",
+                    "kubectl apply -f deployment.yaml -n project-t230"
+                ]
+            }
+        ];
+        
+        let currentTaskIndex = 0;
+        let completedTasks = new Set();
+        let examStartTime = Date.now();
+        let examDuration = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+        
+        // Initialize exam
+        function initializeExam() {
+            populateTaskList();
+            loadTask(0);
+            startTimer();
+        }
+        
+        function populateTaskList() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+            
+            examTasks.forEach((task, index) => {
+                const taskItem = document.createElement('div');
+                taskItem.className = `task-item ${index === currentTaskIndex ? 'active' : ''} ${completedTasks.has(index) ? 'completed' : ''}`;
+                taskItem.onclick = () => loadTask(index);
+                
+                taskItem.innerHTML = `
+                    <div class="task-number">Task ${task.id}</div>
+                    <div class="task-points">${task.points} pts</div>
+                    <div style="clear: both; margin-top: 5px; font-size: 0.9rem;">${task.title}</div>
+                `;
+                
+                taskList.appendChild(taskItem);
+            });
+        }
+        
+        function loadTask(index) {
+            if (index < 0 || index >= examTasks.length) return;
+            
+            currentTaskIndex = index;
+            const task = examTasks[index];
+            
+            document.getElementById('taskTitle').textContent = `Task ${task.id}: ${task.title}`;
+            document.getElementById('currentContext').textContent = task.context;
+            document.getElementById('taskDescription').innerHTML = task.description.replace(/\n/g, '<br>');
+            document.getElementById('prompt').textContent = `root@${task.context.split(' ')[1]}:~#`;
+            
+            populateTaskList();
+            switchContext('terminal');
+        }
+        
+        function switchContext(context) {
+            // Hide all views
+            document.getElementById('terminalView').style.display = 'none';
+            document.getElementById('filesView').style.display = 'none';
+            document.getElementById('notesView').style.display = 'none';
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.context-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected view and activate button
+            if (context === 'terminal') {
+                document.getElementById('terminalView').style.display = 'block';
+                document.querySelector('[onclick="switchContext(\'terminal\')"]').classList.add('active');
+                setTimeout(() => document.getElementById('commandInput').focus(), 100);
+            } else if (context === 'files') {
+                document.getElementById('filesView').style.display = 'block';
+                document.querySelector('[onclick="switchContext(\'files\')"]').classList.add('active');
+            } else if (context === 'notes') {
+                document.getElementById('notesView').style.display = 'block';
+                document.querySelector('[onclick="switchContext(\'notes\')"]').classList.add('active');
+                document.getElementById('notesArea').focus();
+            }
+        }
+        
+        // Keep terminal focused when clicking in terminal area
+        function focusTerminal() {
+            document.getElementById('commandInput').focus();
+        }
+        
+        // Enhanced terminal state management
+        let currentDirectory = '/root';
+        let commandHistory = [];
+        let historyIndex = -1;
+        let tabCompletionCache = {};
+        
+        // Kubernetes cluster simulation data
+        const clusterData = {
+            namespaces: ['default', 'kube-system', 'kube-public', 'kube-node-lease', 'project-h800', 'project-t230', 'minio', 'api-gateway-staging', 'api-gateway-prod'],
+            pods: {
+                'default': ['nginx-deployment-abc123-xyz', 'test-pod-456'],
+                'project-h800': ['o3db-deployment-789-abc', 'o3db-deployment-789-def', 'web-server-123'],
+                'kube-system': ['coredns-558bd4d5db-abc', 'etcd-master', 'kube-apiserver-master', 'kube-controller-manager-master', 'kube-proxy-xyz', 'kube-scheduler-master'],
+                'minio': ['minio-operator-abc123', 'minio-tenant-pool-0-0'],
+                'api-gateway-staging': ['api-gateway-staging-abc', 'api-gateway-staging-def'],
+                'api-gateway-prod': ['api-gateway-prod-abc', 'api-gateway-prod-def', 'api-gateway-prod-ghi']
+            },
+            deployments: {
+                'default': ['nginx-deployment'],
+                'project-h800': ['o3db-deployment', 'web-server'],
+                'api-gateway-staging': ['api-gateway'],
+                'api-gateway-prod': ['api-gateway']
+            },
+            services: {
+                'default': ['kubernetes'],
+                'kube-system': ['kube-dns'],
+                'project-h800': ['o3db-service', 'web-service'],
+                'api-gateway-staging': ['api-gateway-svc'],
+                'api-gateway-prod': ['api-gateway-svc']
+            },
+            nodes: ['master', 'worker1', 'worker2']
+        };
+        
+        // File system simulation
+        const fileSystem = {
+            '/root': ['Documents', 'Downloads', 'opt'],
+            '/root/Documents': [],
+            '/root/Downloads': [],
+            '/opt': ['course'],
+            '/opt/course': ['1', '2', '3', '4', '5'],
+            '/opt/course/1': ['kubeconfig', 'contexts', 'current-context', 'cert'],
+            '/opt/course/2': ['minio-tenant.yaml'],
+            '/opt/course/3': [],
+            '/opt/course/4': [],
+            '/opt/course/5': ['api-gateway']
+        };
+        
+        function handleCommand(event) {
+            const input = event.target;
+            
+            if (event.key === 'Enter') {
+                const command = input.value.trim();
+                if (command) {
+                    commandHistory.unshift(command);
+                    if (commandHistory.length > 100) commandHistory.pop();
+                }
+                historyIndex = -1;
+                
+                const output = document.getElementById('terminalOutput');
+                const prompt = document.getElementById('prompt').textContent;
+                
+                // Add command to output
+                output.innerHTML += `${prompt} ${command}\n`;
+                
+                // Process command
+                const response = processCommand(command);
+                if (response) {
+                    output.innerHTML += response + '\n';
+                }
+                output.innerHTML += '\n';
+                
+                // Clear input and scroll to bottom
+                input.value = '';
+                output.scrollTop = output.scrollHeight;
+                
+            } else if (event.key === 'Tab') {
+                event.preventDefault();
+                handleTabCompletion(input);
+                
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    input.value = commandHistory[historyIndex];
+                }
+                
+            } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    input.value = commandHistory[historyIndex];
+                } else if (historyIndex === 0) {
+                    historyIndex = -1;
+                    input.value = '';
+                }
+            }
+        }
+        
+        function handleTabCompletion(input) {
+            const command = input.value;
+            const parts = command.split(' ');
+            const lastPart = parts[parts.length - 1];
+            
+            let completions = [];
+            
+            // Command completion
+            if (parts.length === 1) {
+                const commands = ['kubectl', 'helm', 'ls', 'cd', 'pwd', 'cat', 'echo', 'grep', 'base64', 'tr', 'mkdir', 'touch', 'rm', 'cp', 'mv', 'nano', 'vi', 'clear', 'history', 'help'];
+                completions = commands.filter(cmd => cmd.startsWith(lastPart));
+            }
+            
+            // kubectl subcommand completion
+            else if (parts[0] === 'kubectl') {
+                if (parts.length === 2) {
+                    const subcommands = ['get', 'describe', 'create', 'delete', 'apply', 'config', 'logs', 'exec', 'port-forward', 'scale', 'rollout', 'top', 'explain'];
+                    completions = subcommands.filter(cmd => cmd.startsWith(lastPart));
+                } else if (parts[1] === 'get' && parts.length === 3) {
+                    const resources = ['pods', 'deployments', 'services', 'nodes', 'namespaces', 'configmaps', 'secrets', 'pv', 'pvc', 'hpa'];
+                    completions = resources.filter(res => res.startsWith(lastPart));
+                } else if (parts[1] === 'config' && parts.length === 3) {
+                    const configCommands = ['view', 'get-contexts', 'current-context', 'use-context', 'set-context'];
+                    completions = configCommands.filter(cmd => cmd.startsWith(lastPart));
+                }
+            }
+            
+            // File path completion
+            else if (parts[0] === 'ls' || parts[0] === 'cd' || parts[0] === 'cat') {
+                const path = lastPart.startsWith('/') ? lastPart : currentDirectory + '/' + lastPart;
+                const dir = path.substring(0, path.lastIndexOf('/')) || '/';
+                const prefix = path.substring(path.lastIndexOf('/') + 1);
+                
+                if (fileSystem[dir]) {
+                    completions = fileSystem[dir]
+                        .filter(item => item.startsWith(prefix))
+                        .map(item => lastPart.startsWith('/') ? dir + '/' + item : item);
+                }
+            }
+            
+            // Apply completion
+            if (completions.length === 1) {
+                const newCommand = parts.slice(0, -1).concat(completions[0]).join(' ');
+                input.value = newCommand + ' ';
+            } else if (completions.length > 1) {
+                // Show available completions
+                const output = document.getElementById('terminalOutput');
+                output.innerHTML += completions.join('  ') + '\n';
+                output.scrollTop = output.scrollHeight;
+            }
+        }
+        
+        function processCommand(command) {
+            if (!command.trim()) return '';
+            
+            const parts = command.trim().split(/\s+/);
+            const cmd = parts[0];
+            
+            // Update current directory for cd commands
+            if (cmd === 'cd') {
+                const newDir = parts[1] || '/root';
+                if (newDir === '..') {
+                    const pathParts = currentDirectory.split('/');
+                    pathParts.pop();
+                    currentDirectory = pathParts.join('/') || '/';
+                } else if (newDir.startsWith('/')) {
+                    currentDirectory = newDir;
+                } else {
+                    currentDirectory = currentDirectory + '/' + newDir;
+                }
+                
+                // Update prompt
+                const contextName = examTasks[currentTaskIndex].context.split(' ')[1];
+                const shortDir = currentDirectory === '/root' ? '~' : currentDirectory.replace('/root', '~');
+                document.getElementById('prompt').textContent = `root@${contextName}:${shortDir}#`;
+                return '';
+            }
+            
+            // Command processing
+            switch (cmd) {
+                case 'clear':
+                    document.getElementById('terminalOutput').innerHTML = 'Welcome to CKA Practice Exam Simulator\nCurrent context: ' + examTasks[currentTaskIndex].context.split(' ')[1] + '\nType \'help\' for available commands or start working on your task.\n\n';
+                    return '';
+                    
+                case 'help':
+                    return `Available commands:
+kubectl - Kubernetes command-line tool
+helm - Kubernetes package manager
+ls - List directory contents
+cd - Change directory
+pwd - Print working directory
+cat - Display file contents
+echo - Display text
+grep - Search text patterns
+base64 - Base64 encoding/decoding
+tr - Translate characters
+mkdir - Create directories
+touch - Create files
+rm - Remove files
+cp - Copy files
+mv - Move files
+clear - Clear terminal
+history - Show command history
+help - Show this help
+
+Use Tab for auto-completion, Up/Down arrows for command history.`;
+                    
+                case 'pwd':
+                    return currentDirectory;
+                    
+                case 'ls':
+                    const targetDir = parts[1] ? (parts[1].startsWith('/') ? parts[1] : currentDirectory + '/' + parts[1]) : currentDirectory;
+                    if (fileSystem[targetDir]) {
+                        return fileSystem[targetDir].join('  ');
+                    } else {
+                        return `ls: cannot access '${targetDir}': No such file or directory`;
+                    }
+                    
+                case 'cat':
+                    if (!parts[1]) return 'cat: missing file operand';
+                    return simulateFileContent(parts[1]);
+                    
+                case 'kubectl':
+                    return processKubectlCommand(parts.slice(1));
+                    
+                case 'helm':
+                    return processHelmCommand(parts.slice(1));
+                    
+                case 'echo':
+                    return parts.slice(1).join(' ');
+                    
+                case 'history':
+                    return commandHistory.slice(0, 20).map((cmd, i) => `${20-i}  ${cmd}`).join('\n');
+                    
+                case 'hostname':
+                    return examTasks[currentTaskIndex].context.split(' ')[1];
+                    
+                case 'whoami':
+                    return 'root';
+                    
+                case 'k':
+                    // kubectl alias
+                    return processKubectlCommand(parts.slice(1));
+                    
+                default:
+                    if (command.includes('>')) {
+                        return 'Output redirected to file';
+                    } else if (command.includes('|')) {
+                        return 'Command piped successfully';
+                    } else {
+                        return `bash: ${cmd}: command not found`;
+                    }
+            }
+        }
+        
+        function processKubectlCommand(args) {
+            if (args.length === 0) {
+                return `kubectl controls the Kubernetes cluster manager.
+
+Find more information at: https://kubernetes.io/docs/reference/kubectl/overview/
+
+Basic Commands (Beginner):
+  create        Create a resource from a file or from stdin.
+  expose        Take a replication controller, service, deployment or pod and expose it as a new Kubernetes Service
+  run           Run a particular image on the cluster
+  set           Set specific features on objects
+
+Basic Commands (Intermediate):
+  explain       Documentation of resources
+  get           Display one or many resources
+  edit          Edit a resource on the server
+  delete        Delete resources by filenames, stdin, resources and names, or by resources and label selector
+
+Deploy Commands:
+  rollout       Manage the rollout of a resource
+  scale         Set a new size for a Deployment, ReplicaSet or Replication Controller
+  autoscale     Auto-scale a Deployment, ReplicaSet, or ReplicationController
+
+Cluster Management Commands:
+  certificate   Modify certificate resources.
+  cluster-info  Display cluster info
+  top           Display Resource (CPU/Memory/Storage) usage.
+  cordon        Mark node as unschedulable
+  uncordon      Mark node as schedulable
+  drain         Drain node in preparation for maintenance
+  taint         Update the taints on one or more nodes
+
+Troubleshooting and Debugging Commands:
+  describe      Show details of a specific resource or group of resources
+  logs          Print the logs for a container in a pod
+  attach        Attach to a running container
+  exec          Execute a command in a container
+  port-forward  Forward one or more local ports to a pod
+  proxy         Run a proxy to the Kubernetes API server
+  cp            Copy files and directories to and from containers.
+  auth          Inspect authorization
+
+Advanced Commands:
+  diff          Diff live version against would-be applied version
+  apply         Apply a configuration to a resource by filename or stdin
+  patch         Update field(s) of a resource using strategic merge patch
+  replace       Replace a resource by filename or stdin
+  wait          Experimental: Wait for a specific condition on one or many resources.
+  convert       Convert config files between different API versions
+  kustomize     Build a kustomization target from a directory or a remote url.
+
+Settings Commands:
+  label         Update the labels on a resource
+  annotate      Update the annotations on a resource
+  completion    Output shell completion code for the specified shell (bash or zsh)
+
+Other Commands:
+  api-resources Print the supported API resources on the server
+  api-versions  Print the supported API versions on the server, in the form of "group/version"
+  config        Modify kubeconfig files
+  plugin        Provides utilities for interacting with plugins.
+  version       Print the client and server version information
+
+Usage:
+  kubectl [flags] [options]
+
+Use "kubectl <command> --help" for more information about a given command.
+Use "kubectl options" for a list of global command-line options (applies to all commands).`;
+            }
+            
+            const subcommand = args[0];
+            
+            switch (subcommand) {
+                case 'get':
+                    return processKubectlGet(args.slice(1));
+                    
+                case 'describe':
+                    return processKubectlDescribe(args.slice(1));
+                    
+                case 'config':
+                    return processKubectlConfig(args.slice(1));
+                    
+                case 'create':
+                    return processKubectlCreate(args.slice(1));
+                    
+                case 'apply':
+                    return processKubectlApply(args.slice(1));
+                    
+                case 'scale':
+                    return processKubectlScale(args.slice(1));
+                    
+                case 'logs':
+                    return 'Displaying pod logs...\n[2024-01-28T10:30:00Z] INFO: Application started\n[2024-01-28T10:30:01Z] INFO: Listening on port 8080';
+                    
+                case 'version':
+                    return `Client Version: version.Info{Major:"1", Minor:"28", GitVersion:"v1.28.2"}
+Kustomize Version: v5.0.4-0.20230601165947-6ce0bf390ce3
+Server Version: version.Info{Major:"1", Minor:"28", GitVersion:"v1.28.2"}`;
+                    
+                default:
+                    return `Error: unknown command "${subcommand}" for "kubectl"`;
+            }
+        }
+        
+        function processKubectlGet(args) {
+            if (args.length === 0) {
+                return 'You must specify the type of resource to get. Use "kubectl api-resources" for a complete list of supported resources.';
+            }
+            
+            const resource = args[0];
+            const namespace = getNamespaceFromArgs(args) || 'default';
+            
+            switch (resource) {
+                case 'pods':
+                case 'pod':
+                case 'po':
+                    const pods = clusterData.pods[namespace] || [];
+                    if (pods.length === 0) {
+                        return 'No resources found in ' + namespace + ' namespace.';
+                    }
+                    let podOutput = 'NAME                     READY   STATUS    RESTARTS   AGE\n';
+                    pods.forEach(pod => {
+                        podOutput += `${pod.padEnd(24)} 1/1     Running   0          2d\n`;
+                    });
+                    return podOutput.trim();
+                    
+                case 'deployments':
+                case 'deployment':
+                case 'deploy':
+                    const deployments = clusterData.deployments[namespace] || [];
+                    if (deployments.length === 0) {
+                        return 'No resources found in ' + namespace + ' namespace.';
+                    }
+                    let deployOutput = 'NAME                     READY   UP-TO-DATE   AVAILABLE   AGE\n';
+                    deployments.forEach(deploy => {
+                        const replicas = namespace === 'project-h800' && deploy === 'o3db-deployment' ? '2/2' : '1/1';
+                        deployOutput += `${deploy.padEnd(24)} ${replicas}     2            2           2d\n`;
+                    });
+                    return deployOutput.trim();
+                    
+                case 'services':
+                case 'service':
+                case 'svc':
+                    const services = clusterData.services[namespace] || [];
+                    if (services.length === 0) {
+                        return 'No resources found in ' + namespace + ' namespace.';
+                    }
+                    let svcOutput = 'NAME                     TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE\n';
+                    services.forEach(svc => {
+                        svcOutput += `${svc.padEnd(24)} ClusterIP   10.96.0.1       <none>        80/TCP    2d\n`;
+                    });
+                    return svcOutput.trim();
+                    
+                case 'nodes':
+                case 'node':
+                case 'no':
+                    let nodeOutput = 'NAME                     STATUS   ROLES           AGE   VERSION\n';
+                    clusterData.nodes.forEach(node => {
+                        const role = node === 'master' ? 'control-plane' : '<none>';
+                        nodeOutput += `${node.padEnd(24)} Ready    ${role.padEnd(15)} 2d    v1.28.2\n`;
+                    });
+                    return nodeOutput.trim();
+                    
+                case 'namespaces':
+                case 'namespace':
+                case 'ns':
+                    let nsOutput = 'NAME                     STATUS   AGE\n';
+                    clusterData.namespaces.forEach(ns => {
+                        nsOutput += `${ns.padEnd(24)} Active   2d\n`;
+                    });
+                    return nsOutput.trim();
+                    
+                default:
+                    return `error: the server doesn't have a resource type "${resource}"`;
+            }
+        }
+        
+        function processKubectlConfig(args) {
+            if (args.length === 0) {
+                return 'Modify kubeconfig files using subcommands like "kubectl config view"';
+            }
+            
+            const subcommand = args[0];
+            
+            switch (subcommand) {
+                case 'view':
+                    const kubeconfigFlag = args.find(arg => arg.startsWith('--kubeconfig='));
+                    if (kubeconfigFlag) {
+                        return simulateKubeconfigView(kubeconfigFlag.split('=')[1]);
+                    }
+                    return simulateKubeconfigView();
+                    
+                case 'get-contexts':
+                    return `CURRENT   NAME                          CLUSTER      AUTHINFO           NAMESPACE
+*         kubernetes-admin@kubernetes   kubernetes   kubernetes-admin   
+          account-0027@kubernetes       kubernetes   account-0027       
+          system:node:worker1@kubernetes kubernetes   system:node:worker1`;
+                    
+                case 'current-context':
+                    return 'kubernetes-admin@kubernetes';
+                    
+                default:
+                    return `Error: unknown command "${subcommand}" for "kubectl config"`;
+            }
+        }
+        
+        function processKubectlCreate(args) {
+            if (args.length === 0) {
+                return 'Create a resource from a file or from stdin.';
+            }
+            
+            if (args[0] === 'namespace' && args[1]) {
+                return `namespace/${args[1]} created`;
+            }
+            
+            return 'Resource created successfully';
+        }
+        
+        function processKubectlApply(args) {
+            if (args.includes('-f')) {
+                const fileIndex = args.indexOf('-f') + 1;
+                const filename = args[fileIndex];
+                return `${filename ? filename + ' ' : ''}configured`;
+            }
+            return 'Resource applied successfully';
+        }
+        
+        function processKubectlScale(args) {
+            if (args.includes('--replicas=')) {
+                const replicasArg = args.find(arg => arg.startsWith('--replicas='));
+                const replicas = replicasArg.split('=')[1];
+                const resource = args.find(arg => !arg.startsWith('--') && !arg.startsWith('-'));
+                return `${resource || 'deployment'} scaled`;
+            }
+            return 'Resource scaled successfully';
+        }
+        
+        function processKubectlDescribe(args) {
+            if (args.length === 0) {
+                return 'You must specify the type of resource to describe.';
+            }
+            
+            return `Name:         ${args[1] || 'example-resource'}
+Namespace:    default
+Labels:       app=example
+Annotations:  <none>
+Status:       Running
+Events:       <none>`;
+        }
+        
+        function processHelmCommand(args) {
+            if (args.length === 0) {
+                return `The Kubernetes Package Manager
+
+Common actions for Helm:
+
+- helm search:    search for charts
+- helm pull:      download a chart to your local directory to view
+- helm install:   upload the chart to Kubernetes
+- helm list:      list releases of charts
+
+Environment variables:
+
+| Name                               | Description                                                                       |
+|------------------------------------|-----------------------------------------------------------------------------------|
+| $HELM_CACHE_HOME                   | set an alternative location for storing cached files.                            |
+| $HELM_CONFIG_HOME                  | set an alternative location for storing Helm configuration.                      |
+| $HELM_DATA_HOME                    | set an alternative location for storing Helm data.                               |
+| $HELM_DEBUG                        | indicate whether or not Helm is running in Debug mode                            |
+| $HELM_DRIVER                       | set the backend storage driver. Values are: configmap, secret, memory, postgres |
+| $HELM_DRIVER_SQL_CONNECTION_STRING | set the connection string the SQL storage driver should use.                     |
+| $HELM_MAX_HISTORY                  | set the maximum number of helm release history.                                  |
+| $HELM_NAMESPACE                    | set the namespace used for the helm operations.                                  |
+| $HELM_NO_PLUGINS                   | disable plugins. Set HELM_NO_PLUGINS=1 to disable plugins.                      |
+| $HELM_PLUGINS                      | set the path to the plugins directory                                            |
+| $HELM_REGISTRY_CONFIG              | set the path to the registry config file.                                        |
+| $HELM_REPOSITORY_CACHE             | set the path to the repository cache directory                                   |
+| $HELM_REPOSITORY_CONFIG            | set the path to the repositories file.                                           |
+| $KUBECONFIG                        | set an alternative Kubernetes configuration file (default "~/.kube/config")     |
+
+Helm stores cache, configuration, and data based on the following configuration order:
+
+- If a HELM_*_HOME environment variable is set, it will be used
+- Otherwise, on systems supporting the XDG base directory specification, the XDG variables will be used
+- When no other location is set a default location will be used based on the operating system
+
+By default, the default directories depend on the Operating System. The defaults are listed below:
+
+| Operating System | Cache Path                | Configuration Path             | Data Path               |
+|------------------|---------------------------|--------------------------------|-------------------------|
+| Linux            | $HOME/.cache/helm         | $HOME/.config/helm             | $HOME/.local/share/helm |
+| macOS            | $HOME/Library/Caches/helm | $HOME/Library/Preferences/helm | $HOME/Library/helm      |
+| Windows          | %TEMP%\\helm              | %APPDATA%\\helm                | %APPDATA%\\helm         |
+
+Usage:
+  helm [command]
+
+Available Commands:
+  completion  generate autocompletion scripts for the specified shell
+  create      create a new chart with the given name
+  dependency  manage a chart's dependencies
+  env         helm client environment information
+  get         download extended information of a named release
+  help        Help about any command
+  history     fetch release history
+  install     install a chart
+  lint        examine a chart for possible issues
+  list        list releases
+  package     package a chart directory into a chart archive
+  plugin      install, list, or uninstall Helm plugins
+  pull        download a chart from a repository and (optionally) unpack it in local directory
+  push        push a chart to remote
+  registry    login to or logout from a registry
+  repo        add, list, remove, update, and index chart repositories
+  rollback    roll back a release to a previous revision
+  search      search for a keyword in charts
+  show        show information of a chart
+  status      display the status of the named release
+  template    locally render templates
+  test        run tests for a release
+  uninstall   uninstall a release
+  upgrade     upgrade a release
+  verify      verify that a chart at the given path has been signed and is valid
+  version     print the client version information
+
+Flags:
+      --burst-limit int                 client-side default throttling limit (default 100)
+      --debug                           enable verbose output
+  -h, --help                            help for helm
+      --kube-apiserver string           the address and the port for the Kubernetes API server
+      --kube-as-group stringArray       group to impersonate for the operation, this flag can be repeated to specify multiple groups.
+      --kube-as-user string             username to impersonate for the operation
+      --kube-ca-file string             the certificate authority file for the Kubernetes API server connection
+      --kube-context string             name of the kubeconfig context to use
+      --kube-insecure-skip-tls-verify   if true, the Kubernetes API server's certificate will not be checked for validity. This will make your HTTPS connections insecure
+      --kube-tls-server-name string     server name to use for Kubernetes API server certificate validation. If it is not provided, the hostname used to contact the server is used
+      --kube-token string               bearer token used for authentication
+      --kubeconfig string               path to the kubeconfig file
+  -n, --namespace string                namespace scope for this request
+      --registry-config string          path to the registry config file (default "/root/.config/helm/registry/config.json")
+      --repository-cache string         path to the file containing cached repository indexes (default "/root/.cache/helm/repository")
+      --repository-config string        path to the file containing repository names and URLs (default "/root/.config/helm/repositories.yaml")
+
+Use "helm [command] --help" for more information about a command.`;
+            }
+            
+            const subcommand = args[0];
+            
+            switch (subcommand) {
+                case 'repo':
+                    if (args[1] === 'add') {
+                        return `"${args[2]}" has been added to your repositories`;
+                    }
+                    return 'Repository command executed';
+                    
+                case 'install':
+                    const releaseName = args[1];
+                    const chart = args[2];
+                    return `NAME: ${releaseName}
+LAST DEPLOYED: ${new Date().toISOString()}
+NAMESPACE: ${getNamespaceFromArgs(args) || 'default'}
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None`;
+                    
+                case 'list':
+                    return `NAME            NAMESPACE       REVISION        UPDATED                                 STATUS          CHART                   APP VERSION
+minio-operator  minio           1               2024-01-28 10:30:00.000000000 +0000 UTC deployed        operator-5.0.10         v5.0.10`;
+                    
+                case 'version':
+                    return `version.BuildInfo{Version:"v3.13.3", GitCommit:"c8b948945e52abba22ff885446a1486cb5fd3474", GitTreeState:"clean", GoVersion:"go1.20.11"}`;
+                    
+                default:
+                    return `Error: unknown command "${subcommand}" for "helm"`;
+            }
+        }
+        
+        function getNamespaceFromArgs(args) {
+            const nsIndex = args.indexOf('-n');
+            if (nsIndex !== -1 && nsIndex + 1 < args.length) {
+                return args[nsIndex + 1];
+            }
+            const namespaceIndex = args.indexOf('--namespace');
+            if (namespaceIndex !== -1 && namespaceIndex + 1 < args.length) {
+                return args[namespaceIndex + 1];
+            }
+            return null;
+        }
+        
+        function simulateFileContent(filename) {
+            if (filename === '/opt/course/1/kubeconfig') {
+                return `apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTi...
+    server: https://127.0.0.1:6443
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: kubernetes-admin
+  name: kubernetes-admin@kubernetes
+- context:
+    cluster: kubernetes
+    user: account-0027
+  name: account-0027@kubernetes
+- context:
+    cluster: kubernetes
+    user: system:node:worker1
+  name: system:node:worker1@kubernetes
+current-context: kubernetes-admin@kubernetes
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin
+  user:
+    client-certificate-data: LS0tLS1CRUdJTi...
+    client-key-data: LS0tLS1CRUdJTi...
+- name: account-0027
+  user:
+    client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURJVENDQWdtZ0F3SUJBZ0lJTnNkSGFBWVBHVGt3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TkRBeE1qZ3hNekEwTURCYUZ3MHlOVEF4TWpneE16QTBNREJhTURReApGekFWQmdOVkJBb1REbk41YzNSbGJUcHRZWE4wWlhKek1Sa3dGd1lEVlFRREV4QnJkV0psY201bGRHVnpMV0ZrCmJXbHVNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXNxVGhOVGhxVGhOVGhxVGgKTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocQpUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UCmhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGgKTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocVRoTlRocQpUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UaHFUaE5UCmhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGgKTlJJREFRQUJvMUl3VURBT0JnTlZIUThCQWY4RUJBTUNCYUF3RXdZRFZSMGxCQXd3Q2dZSUt3WUJCUVVIQXdJdwpEQVlEVlIwVEFRSC9CQUl3QURBZkJnTlZIU01FR0RBV2dCUXNxVGhOVGhxVGhOVGhxVGhOVGhxVGhOVGhxVGgKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    client-key-data: LS0tLS1CRUdJTi...
+- name: system:node:worker1
+  user:
+    client-certificate-data: LS0tLS1CRUdJTi...
+    client-key-data: LS0tLS1CRUdJTi...`;
+            } else if (filename === '/opt/course/2/minio-tenant.yaml') {
+                return `apiVersion: minio.min.io/v2
+kind: Tenant
+metadata:
+  name: minio-tenant
+  namespace: minio
+spec:
+  image: minio/minio:RELEASE.2023-12-23T07-19-11Z
+  pools:
+  - servers: 4
+    volumesPerServer: 4
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+  features:
+    enableSFTP: false`;
+            } else {
+                return `cat: ${filename}: No such file or directory`;
+            }
+        }
+        
+        function simulateKubeconfigView(kubeconfigPath) {
+            return `apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://127.0.0.1:6443
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: kubernetes-admin
+  name: kubernetes-admin@kubernetes
+- context:
+    cluster: kubernetes
+    user: account-0027
+  name: account-0027@kubernetes
+- context:
+    cluster: kubernetes
+    user: system:node:worker1
+  name: system:node:worker1@kubernetes
+current-context: kubernetes-admin@kubernetes
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+- name: account-0027
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+- name: system:node:worker1
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED`;
+        }
+        
+        function nextTask() {
+            if (currentTaskIndex < examTasks.length - 1) {
+                loadTask(currentTaskIndex + 1);
+            }
+        }
+        
+        function previousTask() {
+            if (currentTaskIndex > 0) {
+                loadTask(currentTaskIndex - 1);
+            }
+        }
+        
+        function markCompleted() {
+            completedTasks.add(currentTaskIndex);
+            populateTaskList();
+            updateProgress();
+            
+            if (currentTaskIndex < examTasks.length - 1) {
+                nextTask();
+            }
+        }
+        
+        function showSolution() {
+            const task = examTasks[currentTaskIndex];
+            const output = document.getElementById('terminalOutput');
+            
+            output.innerHTML += '\n=== SOLUTION ===\n';
+            task.solution.forEach(step => {
+                output.innerHTML += step + '\n';
+            });
+            output.innerHTML += '================\n\n';
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function updateProgress() {
+            document.getElementById('progress').textContent = `${completedTasks.size}/${examTasks.length} Tasks Completed`;
+        }
+        
+        function startTimer() {
+            setInterval(() => {
+                const elapsed = Date.now() - examStartTime;
+                const remaining = Math.max(0, examDuration - elapsed);
+                
+                const hours = Math.floor(remaining / (1000 * 60 * 60));
+                const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+                
+                document.getElementById('timer').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (remaining === 0) {
+                    alert('Time is up! Exam completed.');
+                }
+            }, 1000);
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeExam();
+            // Focus terminal input after a short delay
+            setTimeout(() => {
+                document.getElementById('commandInput').focus();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

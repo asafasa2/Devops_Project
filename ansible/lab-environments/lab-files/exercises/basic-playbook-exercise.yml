@@ -1,0 +1,44 @@
+# Basic Playbook Exercise Template
+# Students will complete this playbook to configure web servers
+
+---
+- name: Configure Web Servers
+  hosts: webservers
+  become: yes
+  
+  vars:
+    # TODO: Define variables for nginx configuration
+    nginx_port: # Add port number here
+    server_name: # Add server name here
+    
+  tasks:
+    # TODO: Add task to update package cache
+    - name: Update package cache
+      # Complete this task
+      
+    # TODO: Add task to install nginx
+    - name: Install nginx
+      # Complete this task
+      
+    # TODO: Add task to start and enable nginx service
+    - name: Start nginx service
+      # Complete this task
+      notify: restart nginx
+      
+    # TODO: Add task to copy custom index.html
+    - name: Copy custom index page
+      copy:
+        content: |
+          <html>
+          <head><title>Welcome to {{ server_name }}</title></head>
+          <body>
+            <h1>Hello from {{ inventory_hostname }}</h1>
+            <p>This server is running nginx on port {{ nginx_port }}</p>
+          </body>
+          </html>
+        dest: /var/www/html/index.html
+      notify: restart nginx
+      
+  # TODO: Add handlers section
+  handlers:
+    # Add restart nginx handler here

@@ -1,0 +1,23 @@
+# Elasticsearch configuration for DevOps Practice Environment
+cluster.name: "devops-practice-cluster"
+node.name: "devops-practice-node"
+network.host: 0.0.0.0
+http.port: 9200
+discovery.type: single-node
+
+# Security settings
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+
+# Memory settings
+bootstrap.memory_lock: false
+
+# Path settings
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs
+
+# Index settings
+action.auto_create_index: "+*"
+
+# Logging
+logger.org.elasticsearch.deprecation: warn

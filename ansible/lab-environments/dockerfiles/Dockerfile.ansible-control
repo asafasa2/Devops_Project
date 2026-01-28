@@ -1,0 +1,67 @@
+# Ansible Control Node Dockerfile
+FROM ubuntu:20.04
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    openssh-client \
+    git \
+    curl \
+    vim \
+    nano \
+    tree \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Ansible and related tools
+RUN pip3 install \
+    ansible \
+    ansible-lint \
+    molecule \
+    jinja2 \
+    pyyaml
+
+# Create workspace directory
+RUN mkdir -p /workspace /root/.ssh
+
+# Generate SSH key pair for lab use
+RUN ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N "" \
+    && chmod 600 /root/.ssh/id_rsa \
+    && chmod 644 /root/.ssh/id_rsa.pub
+
+# Create basic ansible.cfg
+RUN echo "[defaults]" > /workspace/ansible.cfg \
+    && echo "inventory = ./inventory" >> /workspace/ansible.cfg \
+    && echo "remote_user = root" >> /workspace/ansible.cfg \
+    && echo "host_key_checking = False" >> /workspace/ansible.cfg \
+    && echo "retry_files_enabled = False" >> /workspace/ansible.cfg \
+    && echo "" >> /workspace/ansible.cfg \
+    && echo "[ssh_connection]" >> /workspace/ansible.cfg \
+    && echo "ssh_args = -o ControlMaster=auto -o ControlPersist=60s" >> /workspace/ansible.cfg
+
+# Create sample inventory file
+RUN echo "[webservers]" > /workspace/inventory \
+    && echo "web-server-1" >> /workspace/inventory \
+    && echo "web-server-2" >> /workspace/inventory \
+    && echo "" >> /workspace/inventory \
+    && echo "[databases]" >> /workspace/inventory \
+    && echo "db-server-1" >> /workspace/inventory \
+    && echo "" >> /workspace/inventory \
+    && echo "[centos]" >> /workspace/inventory \
+    && echo "centos-server" >> /workspace/inventory \
+    && echo "" >> /workspace/inventory \
+    && echo "[production:children]" >> /workspace/inventory \
+    && echo "webservers" >> /workspace/inventory \
+    && echo "databases" >> /workspace/inventory
+
+# Create roles directory structure
+RUN mkdir -p /workspace/roles
+
+# Set working directory
+WORKDIR /workspace
+
+# Keep container running
+CMD ["tail", "-f", "/dev/null"]
