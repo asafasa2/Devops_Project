@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CKA Exam Simulator - Enhanced</title>
+    <link rel="stylesheet" href="css/content-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.css">
+    <style>
+        .cka-simulator {
+            display: flex;
+            height: 100vh;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        
+        .sidebar {
+            width: 350px;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #21262d;
+            color: #c9d1d9;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .timer {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #f85149;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .timer.warning {
+            color: #d29922;
+            animation: pulse 1s infinite;
+        }
+        
+        .timer.critical {
+            color: #f85149;
+            animation: pulse 0.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .content-area {
+            flex: 1;
+            display: flex;
+        }
+        
+        .task-panel {
+            width: 400px;
+            background: #0d1117;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #30363d;
+        }
+        
+        .terminal-panel {
+            flex: 1;
+            background: #0d1117;
+            position: relative;
+        }
+        
+        .scenario-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .scenario-card:hover {
+            border-color: #58a6ff;
+            background: #1c2128;
+        }
+        
+        .scenario-card.selected {
+            border-color: #238636;
+            background: #0d2818;
+        }
+        
+        .scenario-card h4 {
+            color: #58a6ff;
+            margin: 0 0 8px 0;
+        }
+        
+        .scenario-card p {
+            color: #8b949e;
+            margin: 0 0 8px 0;
+            font-size: 0.9em;
+        }
+        
+        .scenario-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8em;
+            color: #7d8590;
+        }
+        
+        .difficulty {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.7em;
+        }
+        
+        .difficulty.easy { background: #238636; color: white; }
+        .difficulty.medium { background: #d29922; color: white; }
+        .difficulty.hard { background: #da3633; color: white; }
+        
+        .task-item {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 12px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .task-item.completed {
+            background: #0d2818;
+            border-color: #238636;
+        }
+        
+        .task-item.current {
+            background: #1c2128;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 1px #58a6ff;
+        }
+        
+        .task-item.failed {
+            background: #2d1617;
+            border-color: #f85149;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .task-number {
+            background: #21262d;
+            color: #58a6ff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .task-number.completed {
+            background: #238636;
+            color: white;
+        }
+        
+        .task-number.current {
+            background: #58a6ff;
+            color: white;
+        }
+        
+        .task-number.failed {
+            background: #f85149;
+            color: white;
+        }
+        
+        .task-points {
+            color: #d29922;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .task-title {
+            color: #c9d1d9;
+            font-weight: 600;
+            margin: 8px 0 4px 0;
+        }
+        
+        .task-description {
+            color: #8b949e;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .progress-section {
+            padding: 20px;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #21262d;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #238636, #2ea043);
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #8b949e;
+        }
+        
+        .controls {
+            padding: 15px 20px;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            background: #21262d;
+            color: #c9d1d9;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        
+        .btn-primary {
+            background: #238636;
+            border-color: #238636;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2ea043;
+            border-color: #2ea043;
+        }
+        
+        .btn-danger {
+            background: #da3633;
+            border-color: #da3633;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #f85149;
+            border-color: #f85149;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .terminal-container {
+            height: 100%;
+            padding: 0;
+        }
+        
+        .cluster-info {
+            background: #0d2818;
+            border: 1px solid #238636;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .cluster-info h4 {
+            color: #2ea043;
+            margin: 0 0 10px 0;
+        }
+        
+        .node-status {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .node-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .node-indicator.ready {
+            background: #238636;
+            box-shadow: 0 0 4px #238636;
+        }
+        
+        .node-indicator.not-ready {
+            background: #f85149;
+            box-shadow: 0 0 4px #f85149;
+        }
+        
+        .node-indicator.initializing {
+            background: #d29922;
+            box-shadow: 0 0 4px #d29922;
+            animation: pulse 1s infinite;
+        }
+        
+        .validation-result {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            border: 1px solid;
+        }
+        
+        .validation-result.success {
+            background: #0d2818;
+            border-color: #238636;
+            color: #2ea043;
+        }
+        
+        .validation-result.error {
+            background: #2d1617;
+            border-color: #f85149;
+            color: #ffa198;
+        }
+        
+        .validation-result pre {
+            margin: 8px 0 0 0;
+            color: #8b949e;
+            font-size: 0.8em;
+            white-space: pre-wrap;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            font-size: 16px;
+            color: #8b949e;
+        }
+        
+        .spinner {
+            border: 3px solid #30363d;
+            border-top: 3px solid #58a6ff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin-right: 12px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .exam-mode {
+            background: #2d1b00;
+            border: 1px solid #d29922;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .exam-mode h4 {
+            margin: 0 0 5px 0;
+            color: #d29922;
+        }
+        
+        .exam-mode p {
+            margin: 0;
+            color: #8b949e;
+            font-size: 0.9em;
+        }
+        
+        .tab-container {
+            display: flex;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            color: #8b949e;
+            font-weight: 500;
+        }
+        
+        .tab.active {
+            background: #0d1117;
+            border-bottom-color: #58a6ff;
+            color: #58a6ff;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 8px;
+        }
+        
+        .hint-box {
+            background: #1c2128;
+            border: 1px solid #58a6ff;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        
+        .hint-box .hint-title {
+            color: #58a6ff;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+        
+        .hint-box .hint-text {
+            color: #c9d1d9;
+        }
+        
+        .session-info {
+            padding: 15px 20px;
+            background: #0d1117;
+            border-bottom: 1px solid #30363d;
+            font-size: 0.9em;
+        }
+        
+        .session-info .session-id {
+            color: #8b949e;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+            color: #8b949e;
+        }
+        
+        .connection-status.connected {
+            color: #2ea043;
+        }
+        
+        .connection-status.disconnected {
+            color: #f85149;
+        }
+        
+        .connection-status.connecting {
+            color: #d29922;
+        }
+    </style>
+</head>
+<body>
+    <div class="cka-simulator">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="exam-mode">
+                <h4>🎯 CKA Practice Exam</h4>
+                <p>Realistic Kubernetes exam environment</p>
+            </div>
+            
+            <div class="cluster-info">
+                <h4>📊 Cluster Status</h4>
+                <div class="node-status">
+                    <div class="node-indicator initializing"></div>
+                    <span>master (Initializing)</span>
+                </div>
+                <div class="node-status">
+                    <div class="node-indicator initializing"></div>
+                    <span>worker1 (Initializing)</span>
+                </div>
+                <div class="node-status">
+                    <div class="node-indicator initializing"></div>
+                    <span>worker2 (Initializing)</span>
+                </div>
+            </div>
+            
+            <div class="progress-section">
+                <h4>📋 Available Scenarios</h4>
+                <div id="scenarios-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading scenarios...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <div>
+                    <h3 id="current-scenario">Select a scenario to begin</h3>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="progress-text">0/0 tasks completed</span>
+                        <span id="score-text">Score: 0</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="timer" id="timer">--:--</div>
+                    <div class="connection-status disconnected" id="connection-status">
+                        <span class="status-indicator"></span>
+                        Disconnected
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Task Panel -->
+                <div class="task-panel">
+                    <h4>📝 Tasks</h4>
+                    <div id="tasks-list">
+                        <p style="color: #8b949e;">Select a scenario to see tasks</p>
+                    </div>
+                    
+                    <div class="controls">
+                        <button class="btn btn-primary" id="validate-btn" disabled>
+                            ✅ Validate Task
+                        </button>
+                        <button class="btn" id="hint-btn" disabled>
+                            💡 Get Hint
+                        </button>
+                        <button class="btn btn-danger" id="end-session-btn" disabled>
+                            🛑 End Session
+                        </button>
+                    </div>
+                    
+                    <div id="validation-result"></div>
+                    <div id="hint-result"></div>
+                </div>
+                
+                <!-- Terminal Panel -->
+                <div class="terminal-panel">
+                    <div class="session-info" id="session-info" style="display: none;">
+                        <div>Session ID: <span class="session-id" id="session-id">-</span></div>
+                    </div>
+                    <div class="tab-container">
+                        <div class="tab active" data-node="master">
+                            🖥️ Master Node
+                            <span class="status-indicator initializing"></span>
+                        </div>
+                        <div class="tab" data-node="worker1">
+                            💻 Worker 1
+                            <span class="status-indicator initializing"></span>
+                        </div>
+                        <div class="tab" data-node="worker2">
+                            💻 Worker 2
+                            <span class="status-indicator initializing"></span>
+                        </div>
+                    </div>
+                    <div class="terminal-container">
+                        <div id="terminal"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/addons/fit/fit.min.js"></script>
+    <script>
+        class CKASimulator {
+            constructor() {
+                this.socket = null;
+                this.terminal = null;
+                this.currentSession = null;
+                this.currentScenario = null;
+                this.currentNode = 'master';
+                this.timer = null;
+                this.timeRemaining = 0;
+                this.currentTaskId = 1;
+                this.connectionStatus = 'disconnected';
+                
+                this.init();
+            }
+            
+            async init() {
+                this.setupTerminal();
+                this.setupEventListeners();
+                await this.loadScenarios();
+                this.updateConnectionStatus('disconnected');
+            }
+            
+            setupTerminal() {
+                this.terminal = new Terminal({
+                    theme: {
+                        background: '#0d1117',
+                        foreground: '#c9d1d9',
+                        cursor: '#58a6ff',
+                        black: '#484f58',
+                        red: '#ff7b72',
+                        green: '#7ee787',
+                        yellow: '#f2cc60',
+                        blue: '#79c0ff',
+                        magenta: '#bc8cff',
+                        cyan: '#76e3ea',
+                        white: '#b1bac4'
+                    },
+                    fontSize: 14,
+                    fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+                    cursorBlink: true,
+                    scrollback: 1000
+                });
+                
+                const fitAddon = new FitAddon.FitAddon();
+                this.terminal.loadAddon(fitAddon);
+                
+                this.terminal.open(document.getElementById('terminal'));
+                fitAddon.fit();
+                
+                // Handle terminal resize
+                window.addEventListener('resize', () => {
+                    fitAddon.fit();
+                    if (this.socket && this.currentSession) {
+                        this.socket.emit('terminal-resize', {
+                            cols: this.terminal.cols,
+                            rows: this.terminal.rows
+                        });
+                    }
+                });
+                
+                this.terminal.writeln('🚀 Welcome to CKA Practice Exam Simulator!');
+                this.terminal.writeln('📋 Select a scenario to start practicing with real Kubernetes clusters.');
+                this.terminal.writeln('');
+            }
+            
+            setupEventListeners() {
+                // Scenario selection
+                document.addEventListener('click', (e) => {
+                    if (e.target.closest('.scenario-card')) {
+                        const scenarioId = e.target.closest('.scenario-card').dataset.scenarioId;
+                        this.selectScenario(scenarioId);
+                    }
+                });
+                
+                // Tab switching
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        this.switchNode(tab.dataset.node);
+                    });
+                });
+                
+                // Control buttons
+                document.getElementById('validate-btn').addEventListener('click', () => {
+                    this.validateCurrentTask();
+                });
+                
+                document.getElementById('hint-btn').addEventListener('click', () => {
+                    this.showHint();
+                });
+                
+                document.getElementById('end-session-btn').addEventListener('click', () => {
+                    this.endSession();
+                });
+            }
+            
+            setupSocketListeners() {
+                this.socket.on('connect', () => {
+                    this.updateConnectionStatus('connected');
+                });
+                
+                this.socket.on('disconnect', () => {
+                    this.updateConnectionStatus('disconnected');
+                });
+                
+                this.socket.on('terminal-data', (data) => {
+                    this.terminal.write(data);
+                });
+                
+                this.socket.on('error', (error) => {
+                    console.error('Socket error:', error);
+                    this.terminal.writeln(`\r\n❌ Error: ${error}\r\n`);
+                    this.showNotification('error', error);
+                });
+            }
+            
+            async loadScenarios() {
+                try {
+                    const response = await fetch('http://localhost:4005/scenarios');
+                    const data = await response.json();
+                    
+                    const scenariosList = document.getElementById('scenarios-list');
+                    scenariosList.innerHTML = '';
+                    
+                    data.scenarios.forEach(scenario => {
+                        const card = document.createElement('div');
+                        card.className = 'scenario-card';
+                        card.dataset.scenarioId = scenario.id;
+                        card.innerHTML = `
+                            <h4>${scenario.title}</h4>
+                            <p>${scenario.description}</p>
+                            <div class="scenario-meta">
+                                <span class="difficulty ${scenario.difficulty}">${scenario.difficulty}</span>
+                                <span>⏱️ ${scenario.timeLimit} min</span>
+                                <span>🎯 ${scenario.weight}%</span>
+                            </div>
+                        `;
+                        scenariosList.appendChild(card);
+                    });
+                } catch (error) {
+                    console.error('Failed to load scenarios:', error);
+                    document.getElementById('scenarios-list').innerHTML = 
+                        '<p style="color: #f85149;">Failed to load scenarios. Please check the connection.</p>';
+                }
+            }
+            
+            async selectScenario(scenarioId) {
+                if (this.currentSession) {
+                    if (!confirm('This will end your current session. Continue?')) {
+                        return;
+                    }
+                    await this.endSession();
+                }
+                
+                try {
+                    this.updateConnectionStatus('connecting');
+                    
+                    // Update UI
+                    document.querySelectorAll('.scenario-card').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                    document.querySelector(`[data-scenario-id="${scenarioId}"]`).classList.add('selected');
+                    
+                    // Start new session
+                    const response = await fetch('http://localhost:4005/sessions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            scenarioId,
+                            userId: 'demo-user'
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const session = await response.json();
+                    this.currentSession = session;
+                    this.currentScenario = session.scenario;
+                    
+                    // Setup socket connection
+                    this.socket = io('http://localhost:4005');
+                    this.setupSocketListeners();
+                    
+                    // Update UI
+                    document.getElementById('current-scenario').textContent = session.scenario.title;
+                    document.getElementById('session-info').style.display = 'block';
+                    document.getElementById('session-id').textContent = session.sessionId;
+                    
+                    this.updateTasksList(session.scenario.tasks);
+                    this.startTimer(session.scenario.timeLimit * 60);
+                    this.enableControls();
+                    
+                    // Connect to terminal
+                    this.connectTerminal();
+                    
+                    this.terminal.clear();
+                    this.terminal.writeln(`🚀 Starting scenario: ${session.scenario.title}`);
+                    this.terminal.writeln(`⏱️  Time limit: ${session.scenario.timeLimit} minutes`);
+                    this.terminal.writeln(`📋 Context: ${session.scenario.context || 'CKA Practice Environment'}`);
+                    this.terminal.writeln('');
+                    this.terminal.writeln('🔧 Setting up Kubernetes cluster...');
+                    this.terminal.writeln('⏳ This may take a few minutes. Please wait...');
+                    this.terminal.writeln('');
+                    
+                    // Update cluster status
+                    this.updateClusterStatus('initializing');
+                    
+                    // Poll for cluster readiness
+                    this.pollClusterStatus();
+                    
+                } catch (error) {
+                    console.error('Failed to start scenario:', error);
+                    this.showNotification('error', `Failed to start scenario: ${error.message}`);
+                    this.updateConnectionStatus('disconnected');
+                }
+            }
+            
+            connectTerminal() {
+                if (this.currentSession && this.socket) {
+                    const containerId = this.currentSession.containers[this.currentNode];
+                    this.socket.emit('start-terminal', {
+                        sessionId: this.currentSession.sessionId,
+                        containerId,
+                        nodeType: this.currentNode
+                    });
+                    
+                    // Handle terminal input
+                    this.terminal.onData(data => {
+                        if (this.socket) {
+                            this.socket.emit('terminal-input', data);
+                        }
+                    });
+                }
+            }
+            
+            switchNode(nodeName) {
+                this.currentNode = nodeName;
+                
+                // Update tab UI
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                document.querySelector(`[data-node="${nodeName}"]`).classList.add('active');
+                
+                // Reconnect terminal to new node
+                if (this.currentSession && this.socket) {
+                    this.connectTerminal();
+                    this.terminal.clear();
+                    this.terminal.writeln(`🔗 Connected to ${nodeName} node`);
+                    this.terminal.writeln(`📋 Session: ${this.currentSession.sessionId}`);
+                    this.terminal.writeln('');
+                }
+            }
+            
+            updateTasksList(tasks) {
+                const tasksList = document.getElementById('tasks-list');
+                tasksList.innerHTML = '';
+                
+                tasks.forEach((task, index) => {
+                    const taskItem = document.createElement('div');
+                    taskItem.className = 'task-item';
+                    if (task.id === this.currentTaskId) taskItem.classList.add('current');
+                    
+                    taskItem.innerHTML = `
+                        <div class="task-header">
+                            <div class="task-number ${task.id === this.currentTaskId ? 'current' : ''}">${task.id}</div>
+                            <div class="task-points">+${task.points} pts</div>
+                        </div>
+                        <div class="task-title">${task.title}</div>
+                        <div class="task-description">${task.description || ''}</div>
+                    `;
+                    tasksList.appendChild(taskItem);
+                });
+            }
+            
+            async validateCurrentTask() {
+                if (!this.currentSession) return;
+                
+                const validateBtn = document.getElementById('validate-btn');
+                validateBtn.disabled = true;
+                validateBtn.textContent = '⏳ Validating...';
+                
+                try {
+                    const response = await fetch(`http://localhost:4005/sessions/${this.currentSession.sessionId}/validate/${this.currentTaskId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    this.showValidationResult(result);
+                    
+                    if (result.valid) {
+                        this.markTaskCompleted(this.currentTaskId);
+                        this.updateProgress(result.progress);
+                        this.currentTaskId++;
+                    }
+                    
+                } catch (error) {
+                    console.error('Validation failed:', error);
+                    this.showValidationResult({
+                        valid: false,
+                        message: 'Validation failed. Please try again.',
+                        results: []
+                    });
+                } finally {
+                    validateBtn.disabled = false;
+                    validateBtn.textContent = '✅ Validate Task';
+                }
+            }
+            
+            showValidationResult(result) {
+                const resultDiv = document.getElementById('validation-result');
+                resultDiv.className = `validation-result ${result.valid ? 'success' : 'error'}`;
+                
+                let content = `<strong>${result.message}</strong>`;
+                
+                if (result.results && result.results.length > 0) {
+                    content += '<pre>';
+                    result.results.forEach(r => {
+                        content += `$ ${r.command}\n${r.output}\n\n`;
+                    });
+                    content += '</pre>';
+                }
+                
+                resultDiv.innerHTML = content;
+                
+                // Auto-hide after 10 seconds
+                setTimeout(() => {
+                    resultDiv.innerHTML = '';
+                }, 10000);
+            }
+            
+            async showHint() {
+                if (!this.currentSession) return;
+                
+                try {
+                    const response = await fetch(`http://localhost:4005/sessions/${this.currentSession.sessionId}/tasks/${this.currentTaskId}/hint`);
+                    const result = await response.json();
+                    
+                    const hintDiv = document.getElementById('hint-result');
+                    hintDiv.innerHTML = `
+                        <div class="hint-box">
+                            <div class="hint-title">💡 Hint</div>
+                            <div class="hint-text">${result.hint}</div>
+                        </div>
+                    `;
+                    
+                    // Auto-hide after 15 seconds
+                    setTimeout(() => {
+                        hintDiv.innerHTML = '';
+                    }, 15000);
+                    
+                } catch (error) {
+                    console.error('Failed to get hint:', error);
+                }
+            }
+            
+            markTaskCompleted(taskId) {
+                const taskItems = document.querySelectorAll('.task-item');
+                taskItems.forEach((item, index) => {
+                    const taskNumber = item.querySelector('.task-number');
+                    if (parseInt(taskNumber.textContent) === taskId) {
+                        item.classList.remove('current');
+                        item.classList.add('completed');
+                        taskNumber.classList.remove('current');
+                        taskNumber.classList.add('completed');
+                    } else if (parseInt(taskNumber.textContent) === taskId + 1) {
+                        item.classList.add('current');
+                        taskNumber.classList.add('current');
+                    }
+                });
+            }
+            
+            updateProgress(progress) {
+                const progressFill = document.getElementById('progress-fill');
+                const progressText = document.getElementById('progress-text');
+                const scoreText = document.getElementById('score-text');
+                
+                const totalTasks = this.currentScenario.tasks.length;
+                const completedTasks = progress.completedTasks.length;
+                const percentage = (completedTasks / totalTasks) * 100;
+                
+                progressFill.style.width = `${percentage}%`;
+                progressText.textContent = `${completedTasks}/${totalTasks} tasks completed`;
+                scoreText.textContent = `Score: ${progress.score}`;
+            }
+            
+            startTimer(seconds) {
+                this.timeRemaining = seconds;
+                this.updateTimerDisplay();
+                
+                this.timer = setInterval(() => {
+                    this.timeRemaining--;
+                    this.updateTimerDisplay();
+                    
+                    if (this.timeRemaining <= 0) {
+                        this.endSession();
+                    }
+                }, 1000);
+            }
+            
+            updateTimerDisplay() {
+                const minutes = Math.floor(this.timeRemaining / 60);
+                const seconds = this.timeRemaining % 60;
+                const timerElement = document.getElementById('timer');
+                
+                timerElement.textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Add warning classes
+                timerElement.className = 'timer';
+                if (this.timeRemaining <= 300) { // 5 minutes
+                    timerElement.classList.add('critical');
+                } else if (this.timeRemaining <= 600) { // 10 minutes
+                    timerElement.classList.add('warning');
+                }
+            }
+            
+            async pollClusterStatus() {
+                if (!this.currentSession) return;
+                
+                try {
+                    const response = await fetch(`http://localhost:4005/sessions/${this.currentSession.sessionId}`);
+                    const session = await response.json();
+                    
+                    if (session.status === 'ready') {
+                        this.updateClusterStatus('ready');
+                        this.terminal.writeln('✅ Cluster is ready! You can now start working on tasks.');
+                        this.terminal.writeln('💡 Use kubectl commands to interact with the cluster.');
+                        this.terminal.writeln('');
+                    } else if (session.status === 'error') {
+                        this.updateClusterStatus('error');
+                        this.terminal.writeln('❌ Cluster initialization failed. Please try again.');
+                    } else {
+                        // Continue polling
+                        setTimeout(() => this.pollClusterStatus(), 5000);
+                    }
+                } catch (error) {
+                    console.error('Error polling cluster status:', error);
+                    setTimeout(() => this.pollClusterStatus(), 5000);
+                }
+            }
+            
+            updateClusterStatus(status) {
+                const indicators = document.querySelectorAll('.node-indicator, .status-indicator');
+                indicators.forEach(indicator => {
+                    indicator.className = `node-indicator ${status}`;
+                });
+                
+                const statusTexts = document.querySelectorAll('.node-status span');
+                statusTexts.forEach(text => {
+                    const nodeName = text.textContent.split(' ')[0];
+                    const statusText = status === 'ready' ? 'Ready' : 
+                                     status === 'error' ? 'Error' : 'Initializing';
+                    text.textContent = `${nodeName} (${statusText})`;
+                });
+            }
+            
+            updateConnectionStatus(status) {
+                this.connectionStatus = status;
+                const statusElement = document.getElementById('connection-status');
+                const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+                
+                statusElement.className = `connection-status ${status}`;
+                statusElement.innerHTML = `<span class="status-indicator"></span>${statusText}`;
+            }
+            
+            enableControls() {
+                document.getElementById('validate-btn').disabled = false;
+                document.getElementById('hint-btn').disabled = false;
+                document.getElementById('end-session-btn').disabled = false;
+            }
+            
+            disableControls() {
+                document.getElementById('validate-btn').disabled = true;
+                document.getElementById('hint-btn').disabled = true;
+                document.getElementById('end-session-btn').disabled = true;
+            }
+            
+            showNotification(type, message) {
+                // Simple notification - could be enhanced with a proper notification system
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    border-radius: 6px;
+                    color: white;
+                    font-weight: bold;
+                    z-index: 1000;
+                    background: ${type === 'error' ? '#f85149' : '#238636'};
+                `;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 5000);
+            }
+            
+            async endSession() {
+                if (!this.currentSession) return;
+                
+                if (!confirm('Are you sure you want to end this session?')) {
+                    return;
+                }
+                
+                try {
+                    await fetch(`http://localhost:4005/sessions/${this.currentSession.sessionId}`, {
+                        method: 'DELETE'
+                    });
+                } catch (error) {
+                    console.error('Failed to end session:', error);
+                }
+                
+                this.cleanup();
+            }
+            
+            cleanup() {
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
+                
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.socket = null;
+                }
+                
+                this.currentSession = null;
+                this.currentScenario = null;
+                this.currentTaskId = 1;
+                
+                // Reset UI
+                document.getElementById('current-scenario').textContent = 'Select a scenario to begin';
+                document.getElementById('timer').textContent = '--:--';
+                document.getElementById('session-info').style.display = 'none';
+                document.getElementById('tasks-list').innerHTML = '<p style="color: #8b949e;">Select a scenario to see tasks</p>';
+                document.getElementById('progress-fill').style.width = '0%';
+                document.getElementById('progress-text').textContent = '0/0 tasks completed';
+                document.getElementById('score-text').textContent = 'Score: 0';
+                document.getElementById('validation-result').innerHTML = '';
+                document.getElementById('hint-result').innerHTML = '';
+                
+                this.disableControls();
+                this.updateConnectionStatus('disconnected');
+                this.updateClusterStatus('initializing');
+                
+                this.terminal.clear();
+                this.terminal.writeln('🏁 Session ended. Select a new scenario to continue practicing.');
+                this.terminal.writeln('');
+            }
+        }
+        
+        // Initialize the simulator when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new CKASimulator();
+        });
+    </script>
+</body>
+</html>

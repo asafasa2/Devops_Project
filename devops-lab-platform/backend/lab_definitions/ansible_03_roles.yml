@@ -1,0 +1,155 @@
+id: ansible_03_roles
+title: "Ansible roles and role structure"
+subject: ansible
+difficulty: intermediate
+estimated_minutes: 30
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/ansible-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=ansible_03
+objectives:
+  - "Understand the standard Ansible role directory structure"
+  - "Fix the wrong module name in tasks/main.yml (service_manager → service)"
+  - "Fix the handler listen key in handlers/main.yml"
+  - "Run ansible-playbook -i inventory.ini site.yml successfully"
+  - "Confirm nginx is active after the playbook runs"
+setup_commands:
+  - "systemctl start ssh || true"
+  - "apt-get install -y nginx > /dev/null 2>&1 || true"
+  - |
+    cat > /workspace/inventory.ini << 'EOF'
+    [local]
+    localhost ansible_connection=local
+
+    [webservers]
+    localhost ansible_connection=local
+
+    [all:vars]
+    ansible_python_interpreter=/usr/bin/python3
+    EOF
+  - "mkdir -p /workspace/roles/webserver/{tasks,handlers,defaults}"
+  - |
+    cat > /workspace/roles/webserver/defaults/main.yml << 'EOF'
+    ---
+    http_port: 80
+    EOF
+  - |
+    cat > /workspace/roles/webserver/tasks/main.yml << 'EOF'
+    ---
+    # BUG: "service_manager" is not a valid module — use "service"
+    - name: Ensure nginx is installed
+      apt:
+        name: nginx
+        state: present
+
+    - name: Ensure nginx is running
+      service_manager:
+        name: nginx
+        state: started
+        enabled: true
+      notify: Restart nginx
+    EOF
+  - |
+    cat > /workspace/roles/webserver/handlers/main.yml << 'EOF'
+    ---
+    # BUG: "listens" is wrong — the correct key is "listen"
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted
+      listens: "Restart nginx"
+    EOF
+  - |
+    cat > /workspace/site.yml << 'EOF'
+    ---
+    - name: Configure webservers
+      hosts: webservers
+      become: true
+      roles:
+        - webserver
+    EOF
+validation_steps:
+  - command: "ansible-playbook --syntax-check -i /workspace/inventory.ini /workspace/site.yml"
+    expected_exit: 0
+    hint: "Fix the module name in tasks/main.yml (service_manager → service) and the handler key (listens → listen)."
+  - command: "ansible-playbook -i /workspace/inventory.ini /workspace/site.yml"
+    expected_exit: 0
+    hint: "The playbook must run to completion. Check 'service_manager' vs 'service' in tasks/main.yml."
+  - command: "systemctl is-active nginx"
+    expected_exit: 0
+    hint: "nginx should be running after the playbook completes. Check that the service task starts nginx."
+instructions: |
+  ## Your mission: Fix an Ansible role
+
+  Ansible **roles** are a structured way to package related tasks, handlers, and variables.
+  The role at `/workspace/roles/webserver/` has two bugs. Fix them so nginx is installed
+  and running.
+
+  ### Role directory structure
+
+  ```
+  roles/
+  └── webserver/
+      ├── tasks/
+      │   └── main.yml       ← task list (what to do)
+      ├── handlers/
+      │   └── main.yml       ← triggered by notify:
+      └── defaults/
+          └── main.yml       ← default variable values
+  ```
+
+  ### Bug 1 — Wrong module name in tasks/main.yml
+
+  Open `/workspace/roles/webserver/tasks/main.yml`.
+
+  The task uses `service_manager` — that module doesn't exist. The correct module is `service`:
+
+  ```yaml
+  - name: Ensure nginx is running
+    service:                   # fix: was service_manager
+      name: nginx
+      state: started
+      enabled: true
+    notify: Restart nginx
+  ```
+
+  ### Bug 2 — Wrong handler key in handlers/main.yml
+
+  Open `/workspace/roles/webserver/handlers/main.yml`.
+
+  The handler uses `listens:` — the correct key is `listen:`:
+
+  ```yaml
+  - name: Restart nginx
+    service:
+      name: nginx
+      state: restarted
+    listen: "Restart nginx"   # fix: was listens
+  ```
+
+  ### How handlers work
+
+  When a task with `notify: Restart nginx` reports a change, Ansible queues the handler
+  named (or listening for) "Restart nginx" and runs it at the end of the play.
+  This avoids restarting services on every run — only when something actually changed.
+
+  ### Run the playbook
+
+  ```bash
+  cd /workspace
+
+  # Syntax check first
+  ansible-playbook --syntax-check -i inventory.ini site.yml
+
+  # Run it
+  ansible-playbook -i inventory.ini site.yml
+
+  # Verify nginx is running
+  systemctl is-active nginx
+  ```
+
+  Click **Validate** when all three checks pass.

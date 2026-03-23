@@ -1,0 +1,78 @@
+id: networking_01_iptables
+title: "Control traffic with iptables"
+subject: networking
+difficulty: beginner
+estimated_minutes: 25
+containers:
+  - name: lab-host
+    image: devops-lab/networking-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=networking_01
+objectives:
+  - "List the current iptables rules with iptables -L -n -v"
+  - "Identify the rule blocking HTTP traffic on port 80"
+  - "Delete the blocking DROP rule"
+  - "Add an ACCEPT rule for port 80 in the INPUT chain"
+  - "Verify nginx is reachable with curl http://localhost"
+setup_commands:
+  - "systemctl start nginx"
+  - "sleep 1"
+  - "iptables -P INPUT ACCEPT"
+  - "iptables -F INPUT"
+  - "iptables -A INPUT -i lo -j ACCEPT"
+  - "iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT"
+  - "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
+  - "iptables -A INPUT -p tcp --dport 80 -j DROP"
+  - "iptables -A INPUT -j ACCEPT"
+validation_steps:
+  - command: "curl -s -o /dev/null -w '%{http_code}' http://localhost"
+    expected_exit: 0
+    hint: "HTTP port 80 is still blocked. Find the DROP rule with 'iptables -L INPUT -n --line-numbers' and delete it with 'iptables -D INPUT <number>'."
+  - command: "iptables -L INPUT -n | grep -q 'DROP.*dpt:80'"
+    expected_exit: 1
+    hint: "The DROP rule for port 80 is still present. Delete it: iptables -D INPUT <rule-number>."
+  - command: "systemctl is-active nginx"
+    expected_exit: 0
+    hint: "nginx is not running. Start it with: systemctl start nginx"
+instructions: |
+  ## Your mission: Unblock HTTP traffic
+
+  A DROP rule is blocking port 80. nginx is running but unreachable.
+  Find and remove the offending rule, then confirm nginx responds.
+
+  ### Step 1 — List the current rules
+  ```
+  iptables -L INPUT -n -v --line-numbers
+  ```
+
+  The output shows each rule with a line number. Find the one that says
+  `DROP` and `dpt:80`.
+
+  **iptables chain structure:**
+  - `INPUT` — traffic coming in to this host
+  - `OUTPUT` — traffic leaving this host
+  - `FORWARD` — traffic passing through (routing)
+
+  **Rule targets:**
+  - `ACCEPT` — allow the packet
+  - `DROP` — silently discard the packet
+  - `REJECT` — discard and send error back
+
+  ### Step 2 — Delete the blocking rule
+  ```
+  iptables -D INPUT <line-number>
+  ```
+
+  ### Step 3 — Add an explicit ACCEPT for port 80
+  ```
+  iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+  ```
+
+  ### Step 4 — Verify
+  ```
+  curl http://localhost
+  iptables -L INPUT -n -v
+  ```
+
+  Once `curl http://localhost` returns the nginx welcome page, click **Validate**.

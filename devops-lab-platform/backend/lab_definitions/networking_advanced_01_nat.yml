@@ -1,0 +1,128 @@
+id: networking_advanced_01_nat
+title: "Set up NAT and port forwarding between network namespaces"
+subject: networking
+difficulty: advanced
+estimated_minutes: 45
+containers:
+  - name: lab-host
+    image: devops-lab/networking-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=net_adv_01
+objectives:
+  - "Understand network namespaces as isolated network stacks"
+  - "Configure IP forwarding and iptables MASQUERADE for NAT"
+  - "Set up DNAT port forwarding from host to internal namespace"
+  - "Verify connectivity between namespaces"
+setup_commands:
+  - |
+    # Create two network namespaces
+    ip netns add external
+    ip netns add internal
+
+    # Create veth pairs: host <-> external
+    ip link add veth-ext type veth peer name veth-ext-ns
+    ip link set veth-ext-ns netns external
+
+    # Create veth pairs: host <-> internal
+    ip link add veth-int type veth peer name veth-int-ns
+    ip link set veth-int-ns netns internal
+
+    # Assign IPs on host side
+    ip addr add 10.0.1.1/24 dev veth-ext
+    ip addr add 10.0.2.1/24 dev veth-int
+    ip link set veth-ext up
+    ip link set veth-int up
+
+    # Configure external namespace
+    ip netns exec external ip addr add 10.0.1.2/24 dev veth-ext-ns
+    ip netns exec external ip link set veth-ext-ns up
+    ip netns exec external ip link set lo up
+    ip netns exec external ip route add default via 10.0.1.1
+
+    # Configure internal namespace
+    ip netns exec internal ip addr add 10.0.2.2/24 dev veth-int-ns
+    ip netns exec internal ip link set veth-int-ns up
+    ip netns exec internal ip link set lo up
+    ip netns exec internal ip route add default via 10.0.2.1
+
+    # Start a web server in the internal namespace
+    ip netns exec internal bash -c 'echo "Hello from internal network" > /tmp/index.html'
+    ip netns exec internal bash -c 'cd /tmp && python3 -m http.server 8080 &'
+    sleep 1
+  - |
+    # Disable IP forwarding (student must enable it)
+    echo 0 > /proc/sys/net/ipv4/ip_forward
+validation_steps:
+  - command: "cat /proc/sys/net/ipv4/ip_forward | grep -q 1"
+    expected_exit: 0
+    hint: "IP forwarding must be enabled. Run: echo 1 > /proc/sys/net/ipv4/ip_forward"
+  - command: "iptables -t nat -L POSTROUTING -n | grep -q 'MASQUERADE'"
+    expected_exit: 0
+    hint: "You need a MASQUERADE rule in the nat POSTROUTING chain for outbound NAT."
+  - command: "ip netns exec internal ping -c1 -W2 10.0.1.2"
+    expected_exit: 0
+    hint: "The internal namespace should be able to reach the external namespace (10.0.1.2) via NAT."
+  - command: "iptables -t nat -L PREROUTING -n | grep -q 'DNAT'"
+    expected_exit: 0
+    hint: "You need a DNAT rule in PREROUTING to forward port 8080 from the host to the internal namespace."
+  - command: "curl -s --connect-timeout 3 http://10.0.1.1:8080 | grep -q 'Hello from internal'"
+    expected_exit: 0
+    hint: "Port forwarding should allow reaching the internal web server via the host IP on port 8080."
+instructions: |
+  ## Your mission: Set up NAT and port forwarding
+
+  You have two network namespaces simulating isolated networks:
+  ```
+  [external: 10.0.1.0/24] <---> [HOST] <---> [internal: 10.0.2.0/24]
+                                                     └── web server on :8080
+  ```
+
+  The internal namespace has a web server on port 8080, but it's isolated.
+  Your job is to set up NAT so the internal network can reach external, and
+  port forwarding so external can reach the internal web server.
+
+  ### Step 1 — Explore the setup
+  ```
+  ip netns list
+  ip netns exec internal ip addr
+  ip netns exec external ip addr
+  ip netns exec internal curl -s http://localhost:8080   # works inside
+  ```
+
+  ### Step 2 — Enable IP forwarding
+  ```
+  echo 1 > /proc/sys/net/ipv4/ip_forward
+  ```
+
+  ### Step 3 — Set up NAT (MASQUERADE)
+  Allow the internal namespace to reach external via NAT:
+  ```
+  iptables -t nat -A POSTROUTING -s 10.0.2.0/24 -o veth-ext -j MASQUERADE
+  iptables -A FORWARD -i veth-int -o veth-ext -j ACCEPT
+  iptables -A FORWARD -i veth-ext -o veth-int -m state --state RELATED,ESTABLISHED -j ACCEPT
+  ```
+
+  ### Step 4 — Verify NAT works
+  ```
+  ip netns exec internal ping -c1 10.0.1.2
+  ```
+
+  ### Step 5 — Set up port forwarding (DNAT)
+  Forward port 8080 from the host to the internal web server:
+  ```
+  iptables -t nat -A PREROUTING -p tcp -d 10.0.1.1 --dport 8080 -j DNAT --to-destination 10.0.2.2:8080
+  iptables -A FORWARD -p tcp -d 10.0.2.2 --dport 8080 -j ACCEPT
+  ```
+
+  ### Step 6 — Test port forwarding
+  ```
+  curl http://10.0.1.1:8080
+  ```
+
+  You should see "Hello from internal network".
+
+  **Why this matters:** NAT and port forwarding are fundamental to how Docker
+  networking, Kubernetes Services, and cloud load balancers work under the hood.
+
+  Once all connectivity works, click **Validate**.

@@ -1,0 +1,133 @@
+id: security_04_hardening
+title: "Apply CIS benchmark hardening checklist"
+subject: security
+difficulty: advanced
+estimated_minutes: 35
+containers:
+  - name: lab-host
+    image: devops-lab/security-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=sec_04
+objectives:
+  - "Fix file permissions on /etc/passwd, /etc/shadow, /etc/group"
+  - "Disable IP forwarding and ICMP redirects via sysctl"
+  - "Set secure umask in login.defs"
+  - "Configure password aging policy"
+  - "Disable unnecessary services"
+setup_commands:
+  - |
+    # Deliberately weaken permissions
+    chmod 666 /etc/passwd
+    chmod 666 /etc/shadow
+    chmod 666 /etc/group
+  - |
+    # Set insecure sysctl values
+    sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true
+    sysctl -w net.ipv4.conf.all.send_redirects=1 2>/dev/null || true
+    sysctl -w net.ipv4.conf.all.accept_redirects=1 2>/dev/null || true
+  - |
+    # Set weak umask
+    sed -i 's/^UMASK.*/UMASK 000/' /etc/login.defs 2>/dev/null || true
+  - |
+    # Weaken password policy
+    sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 99999/' /etc/login.defs 2>/dev/null || true
+    sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 0/' /etc/login.defs 2>/dev/null || true
+    sed -i 's/^PASS_MIN_LEN.*/PASS_MIN_LEN 1/' /etc/login.defs 2>/dev/null || true
+validation_steps:
+  - command: "stat -c '%a' /etc/passwd | grep -q '644'"
+    expected_exit: 0
+    hint: "Set /etc/passwd permissions to 644: chmod 644 /etc/passwd"
+  - command: "stat -c '%a' /etc/shadow | grep -q '640'"
+    expected_exit: 0
+    hint: "Set /etc/shadow permissions to 640: chmod 640 /etc/shadow"
+  - command: "stat -c '%a' /etc/group | grep -q '644'"
+    expected_exit: 0
+    hint: "Set /etc/group permissions to 644: chmod 644 /etc/group"
+  - command: "sysctl net.ipv4.ip_forward 2>/dev/null | grep -q '= 0'"
+    expected_exit: 0
+    hint: "Disable IP forwarding: sysctl -w net.ipv4.ip_forward=0"
+  - command: "sysctl net.ipv4.conf.all.send_redirects 2>/dev/null | grep -q '= 0'"
+    expected_exit: 0
+    hint: "Disable send_redirects: sysctl -w net.ipv4.conf.all.send_redirects=0"
+  - command: "sysctl net.ipv4.conf.all.accept_redirects 2>/dev/null | grep -q '= 0'"
+    expected_exit: 0
+    hint: "Disable accept_redirects: sysctl -w net.ipv4.conf.all.accept_redirects=0"
+  - command: "grep '^UMASK' /etc/login.defs | grep -q '027'"
+    expected_exit: 0
+    hint: "Set UMASK to 027 in /etc/login.defs"
+  - command: "grep '^PASS_MAX_DAYS' /etc/login.defs | grep -q '90'"
+    expected_exit: 0
+    hint: "Set PASS_MAX_DAYS to 90 in /etc/login.defs"
+instructions: |
+  ## Your mission: Apply CIS benchmark hardening
+
+  This system has multiple security weaknesses that violate the CIS
+  (Center for Internet Security) benchmarks. Fix them all.
+
+  ### Step 1 — Audit file permissions
+  ```
+  ls -la /etc/passwd /etc/shadow /etc/group
+  ```
+
+  These are currently world-writable (666). Fix them:
+  ```
+  chmod 644 /etc/passwd
+  chmod 640 /etc/shadow
+  chmod 644 /etc/group
+  ```
+
+  **Why:** Anyone who can write to `/etc/passwd` can add a root-level user.
+  `/etc/shadow` contains password hashes and must be restricted.
+
+  ### Step 2 — Fix sysctl network parameters
+  ```
+  sysctl net.ipv4.ip_forward
+  sysctl net.ipv4.conf.all.send_redirects
+  sysctl net.ipv4.conf.all.accept_redirects
+  ```
+
+  Harden them:
+  ```
+  sysctl -w net.ipv4.ip_forward=0
+  sysctl -w net.ipv4.conf.all.send_redirects=0
+  sysctl -w net.ipv4.conf.all.accept_redirects=0
+  ```
+
+  **Why:** IP forwarding should be off unless the machine is a router.
+  ICMP redirects can be used for MITM attacks.
+
+  ### Step 3 — Fix umask
+  ```
+  grep UMASK /etc/login.defs
+  ```
+
+  Change UMASK to 027:
+  ```
+  nano /etc/login.defs
+  ```
+  Find `UMASK` and change it to `027`.
+
+  **Why:** umask 000 means new files are world-readable/writable by default.
+  027 means only owner and group can access new files.
+
+  ### Step 4 — Fix password policy
+  In `/etc/login.defs`, set:
+  ```
+  PASS_MAX_DAYS 90
+  PASS_MIN_DAYS 7
+  PASS_MIN_LEN 12
+  ```
+
+  **Why:** Passwords should expire (90 days max), users shouldn't change them
+  too frequently (7 day minimum prevents change-back tricks), and minimum
+  length prevents weak passwords.
+
+  ### Step 5 — Verify all fixes
+  ```
+  ls -la /etc/passwd /etc/shadow /etc/group
+  sysctl net.ipv4.ip_forward net.ipv4.conf.all.send_redirects net.ipv4.conf.all.accept_redirects
+  grep -E '^(UMASK|PASS_)' /etc/login.defs
+  ```
+
+  Once all checks pass, click **Validate**.

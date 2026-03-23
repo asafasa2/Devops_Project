@@ -1,0 +1,135 @@
+id: terraform_02_variables
+title: "Terraform variables, outputs, and locals"
+subject: terraform
+difficulty: beginner
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/terraform-lab:latest
+    privileged: false
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LAB_ID=terraform_02
+objectives:
+  - "Declare input variables with correct types and defaults in variables.tf"
+  - "Reference variables in main.tf using var.<name>"
+  - "Create an output block in outputs.tf"
+  - "Run terraform validate successfully"
+setup_commands:
+  - "mkdir -p /workspace"
+  - |
+    cat > /workspace/main.tf << 'EOF'
+    terraform {
+      required_providers {
+        docker = {
+          source  = "kreuzwerker/docker"
+          version = "~> 3.0"
+        }
+      }
+    }
+
+    provider "docker" {}
+
+    resource "docker_image" "app" {
+      name = "nginx:alpine"
+    }
+
+    # TODO: replace the hardcoded strings below with var.container_name and var.image_tag
+    resource "docker_container" "app" {
+      name  = "hardcoded-name"
+      image = docker_image.app.image_id
+    }
+    EOF
+  - |
+    cat > /workspace/variables.tf << 'EOF'
+    # BUG 1: type is wrong — should be string, not number
+    variable "container_name" {
+      type = number
+    }
+
+    # BUG 2: missing default value — add default = "alpine"
+    variable "image_tag" {
+      type = string
+    }
+    EOF
+  - "cd /workspace && terraform init -input=false > /tmp/tf_init.log 2>&1 || true"
+validation_steps:
+  - command: "terraform -chdir=/workspace validate"
+    expected_exit: 0
+    hint: "Fix the variable type in variables.tf and ensure all required fields are present."
+  - command: "grep -q 'var\\.' /workspace/main.tf"
+    expected_exit: 0
+    hint: "main.tf should use var.container_name (not a hardcoded string) for the container name."
+  - command: "test -f /workspace/outputs.tf"
+    expected_exit: 0
+    hint: "Create /workspace/outputs.tf with an output block for container_id."
+validation_note: "terraform plan is not run here because it requires a running Docker daemon accessible to the container."
+instructions: |
+  ## Your mission: Use variables and outputs
+
+  Hardcoded values in Terraform make configs rigid. Variables let you reuse the same
+  config with different inputs.
+
+  ### Step 1 — Fix variables.tf
+
+  Open `/workspace/variables.tf`. It has two bugs:
+
+  1. `container_name` has the wrong type — it should be `string`, not `number`
+  2. `image_tag` is missing a `default` value — add `default = "alpine"`
+
+  ```hcl
+  variable "container_name" {
+    type = string
+  }
+
+  variable "image_tag" {
+    type    = string
+    default = "alpine"
+  }
+  ```
+
+  ### Step 2 — Update main.tf to use variables
+
+  Open `/workspace/main.tf` and replace the hardcoded container name with the variable:
+
+  ```hcl
+  resource "docker_container" "app" {
+    name  = var.container_name
+    image = docker_image.app.image_id
+  }
+  ```
+
+  You can also use `var.image_tag` in the image name if you like:
+  ```hcl
+  resource "docker_image" "app" {
+    name = "nginx:${var.image_tag}"
+  }
+  ```
+
+  ### Step 3 — Create outputs.tf
+
+  Outputs let you extract values after apply. Create `/workspace/outputs.tf`:
+
+  ```hcl
+  output "container_id" {
+    value       = docker_container.app.id
+    description = "The ID of the running container"
+  }
+  ```
+
+  ### Step 4 — Validate
+
+  ```bash
+  cd /workspace
+  terraform validate
+  ```
+
+  To pass a variable on the command line:
+  ```bash
+  terraform plan -var="container_name=my-app"
+  ```
+
+  Click **Validate** when all three checks pass.

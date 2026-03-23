@@ -1,0 +1,97 @@
+id: ansible_01_inventory
+title: "Build an Ansible inventory and run ad-hoc commands"
+subject: ansible
+difficulty: beginner
+estimated_minutes: 20
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/ansible-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=ansible_01
+objectives:
+  - "Understand the INI inventory format"
+  - "Fix inventory.ini so localhost uses ansible_connection=local"
+  - "Add a [webservers] group containing localhost"
+  - "Run ansible all -i /workspace/inventory.ini -m ping successfully"
+setup_commands:
+  - "systemctl start ssh || true"
+  - "sleep 2"
+  - |
+    cat > /workspace/inventory.ini << 'EOF'
+    # BROKEN inventory — fix the errors below
+
+    # BUG 1: localhost needs ansible_connection=local (not ssh) and correct user
+    localhost ansible_user=wronguser ansible_port=2222
+
+    # BUG 2: [webservers] group is missing entirely — add it with localhost as a member
+
+    [all:vars]
+    ansible_python_interpreter=/usr/bin/python3
+    EOF
+validation_steps:
+  - command: "ansible all -i /workspace/inventory.ini -m ping"
+    expected_exit: 0
+    hint: "The ping module should succeed for all hosts. Make sure localhost has ansible_connection=local."
+  - command: "grep -q '\\[webservers\\]' /workspace/inventory.ini"
+    expected_exit: 0
+    hint: "Add a [webservers] group to inventory.ini with localhost as a member."
+instructions: |
+  ## Your mission: Fix the Ansible inventory
+
+  Ansible uses an **inventory** file to know which hosts to manage and how to connect to them.
+  The inventory at `/workspace/inventory.ini` has two bugs. Fix them.
+
+  ### Inventory basics
+
+  An INI-format inventory looks like this:
+
+  ```ini
+  [group_name]
+  hostname  ansible_connection=local  ansible_user=root
+
+  [all:vars]
+  ansible_python_interpreter=/usr/bin/python3
+  ```
+
+  For `localhost`, always use `ansible_connection=local` — this avoids SSH entirely
+  and runs modules directly on the control node.
+
+  ### Fix 1 — localhost connection
+
+  Replace the broken localhost line with:
+  ```ini
+  localhost ansible_connection=local
+  ```
+
+  ### Fix 2 — Add a [webservers] group
+
+  After the localhost line, add:
+  ```ini
+  [webservers]
+  localhost ansible_connection=local
+  ```
+
+  ### Test your inventory
+
+  ```bash
+  # Ping all hosts
+  ansible all -i /workspace/inventory.ini -m ping
+
+  # List hosts in a specific group
+  ansible webservers -i /workspace/inventory.ini --list-hosts
+
+  # Run a shell command on all hosts
+  ansible all -i /workspace/inventory.ini -m shell -a "whoami"
+  ```
+
+  A successful ping looks like:
+  ```
+  localhost | SUCCESS => {
+      "ping": "pong"
+  }
+  ```
+
+  Click **Validate** when both checks pass.

@@ -1,0 +1,77 @@
+id: linux_02_storage
+title: "Create and mount a filesystem"
+subject: linux
+difficulty: beginner
+estimated_minutes: 25
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_02
+objectives:
+  - "Create a 100 MB file-backed block device using dd and losetup"
+  - "Format it with mkfs.ext4"
+  - "Mount it at /mnt/data"
+  - "Add a persistent entry to /etc/fstab"
+  - "Confirm the mount survives a remount with mount -a"
+setup_commands:
+  - "mkdir -p /mnt/data"
+  - "echo 'THIS IS INTENTIONALLY BROKEN' >> /etc/fstab"
+  - "echo '/dev/nonexistent /mnt/broken ext4 defaults 0 0' >> /etc/fstab"
+validation_steps:
+  - command: "mountpoint -q /mnt/data"
+    expected_exit: 0
+    hint: "/mnt/data is not mounted. Did you create the loop device, format it, and mount it?"
+  - command: "grep -q '/mnt/data' /etc/fstab"
+    expected_exit: 0
+    hint: "No /mnt/data entry found in /etc/fstab. Add a line so the mount persists across reboots."
+  - command: "mount -a 2>/dev/null; mountpoint -q /mnt/data"
+    expected_exit: 0
+    hint: "mount -a fails — check your fstab entry for /mnt/data has the correct device path."
+instructions: |
+  ## Your mission: Create a persistent filesystem
+
+  Linux storage starts with block devices. In this lab you will create a loop-device-backed
+  filesystem and make it mount automatically.
+
+  ### Steps to follow
+
+  1. **Create a 100 MB image file**
+     ```
+     dd if=/dev/zero of=/srv/data.img bs=1M count=100
+     ```
+
+  2. **Attach it as a loop device**
+     ```
+     losetup -fP /srv/data.img
+     losetup -a          # note the device name, e.g. /dev/loop0
+     ```
+
+  3. **Format it**
+     ```
+     mkfs.ext4 /dev/loop0
+     ```
+
+  4. **Mount it**
+     ```
+     mount /dev/loop0 /mnt/data
+     mountpoint /mnt/data   # should print "is a mountpoint"
+     ```
+
+  5. **Make it persistent via /etc/fstab**
+
+     Also clean up the broken entry that was left there.
+     Add this line (adjust device name if different):
+     ```
+     /srv/data.img  /mnt/data  ext4  loop,defaults  0  0
+     ```
+
+  6. **Test your fstab entry**
+     ```
+     umount /mnt/data
+     mount -a
+     mountpoint /mnt/data
+     ```
+
+  Once `/mnt/data` mounts cleanly with `mount -a`, click **Validate**.

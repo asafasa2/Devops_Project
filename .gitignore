@@ -85,3 +85,14 @@ elasticsearch/data/
 *.key
 *.crt
 ssl/
+# SQLite databases
+*.db
+
+# Archives
+*.zip
+
+# Temporary/generated directories
+mnt/
+
+# Plan files (conversation-specific)
+plan-*.md

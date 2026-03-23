@@ -1,0 +1,103 @@
+id: linux_05_bash_scripting
+title: "Fix a broken bash script"
+subject: linux
+difficulty: beginner
+estimated_minutes: 25
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_05
+objectives:
+  - "Read and understand a broken bash script"
+  - "Fix the syntax errors and logic bugs"
+  - "Make the script executable"
+  - "Verify it exits 0 and prints correct output for valid services"
+setup_commands:
+  - "mkdir -p /opt/lab"
+  - |
+    cat > /opt/lab/check_services.sh << 'SCRIPT'
+    #!/bin/bash
+    # check_services.sh — check if each service argument is active
+    # Usage: check_services.sh <service1> [service2 ...]
+    # Exits 0 only if ALL services are active
+
+    if [ $# -eq 0 ]
+      echo "Usage: $0 <service> [service...]"
+      exit 1
+    fi
+
+    ALL_OK=true
+
+    for svc in $@
+    do
+      STATUS=$(systemctl is-active $svc)
+      if [ $STATUS = "active" ]; then
+        echo "OK: $svc is running"
+      else
+        echo "FAIL: $svc is not running (status: $STATUS)"
+        ALL_OK=false
+      fi
+    end
+
+    if [ "$ALL_OK" = "true" ]
+      echo "All services OK"
+      exit 0
+    else
+      exit 1
+    fi
+    SCRIPT
+  - "chmod -x /opt/lab/check_services.sh"
+  - "systemctl start nginx"
+validation_steps:
+  - command: "bash -n /opt/lab/check_services.sh"
+    expected_exit: 0
+    hint: "The script still has syntax errors. Run 'bash -n /opt/lab/check_services.sh' to see them."
+  - command: "test -x /opt/lab/check_services.sh"
+    expected_exit: 0
+    hint: "The script is not executable. Run: chmod +x /opt/lab/check_services.sh"
+  - command: "/opt/lab/check_services.sh nginx"
+    expected_exit: 0
+    hint: "Script exits non-zero for nginx. Check the is-active comparison and make sure nginx is running."
+instructions: |
+  ## Your mission: Fix the broken bash script
+
+  A script at `/opt/lab/check_services.sh` was written with several bugs.
+  It should accept service names as arguments and report whether each is running.
+
+  ### Step 1 — Read the script
+  ```
+  cat /opt/lab/check_services.sh
+  ```
+
+  ### Step 2 — Check for syntax errors
+  ```
+  bash -n /opt/lab/check_services.sh
+  ```
+
+  There are **three bugs** to find:
+  1. A missing `then` keyword after an `if` condition
+  2. `end` instead of `done` to close the `for` loop
+  3. Another missing `then` keyword
+
+  ### Step 3 — Fix the script
+  ```
+  nano /opt/lab/check_services.sh
+  # or
+  vim /opt/lab/check_services.sh
+  ```
+
+  ### Step 4 — Make it executable
+  ```
+  chmod +x /opt/lab/check_services.sh
+  ```
+
+  ### Step 5 — Test it
+  ```
+  /opt/lab/check_services.sh nginx
+  ```
+
+  It should print `OK: nginx is running` and `All services OK`, then exit 0.
+
+  Once the script works, click **Validate**.

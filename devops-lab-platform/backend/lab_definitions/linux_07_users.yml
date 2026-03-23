@@ -1,0 +1,85 @@
+id: linux_07_users
+title: "Create a user with proper permissions"
+subject: linux
+difficulty: beginner
+estimated_minutes: 20
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_07
+objectives:
+  - "Create a system user named 'deploy' with a home directory"
+  - "Add deploy to the 'www-data' group"
+  - "Grant deploy passwordless sudo rights for 'systemctl restart nginx' only"
+  - "Verify deploy can restart nginx without a password"
+setup_commands:
+  - "systemctl start nginx"
+  - "mkdir -p /etc/sudoers.d"
+  - "chmod 750 /etc/sudoers.d"
+validation_steps:
+  - command: "id deploy"
+    expected_exit: 0
+    hint: "User 'deploy' does not exist. Create it: useradd -m -s /bin/bash deploy"
+  - command: "id -Gn deploy | grep -q 'www-data'"
+    expected_exit: 0
+    hint: "deploy is not in the www-data group. Run: usermod -aG www-data deploy"
+  - command: "sudo -u deploy sudo -n systemctl restart nginx"
+    expected_exit: 0
+    hint: "deploy cannot run 'sudo systemctl restart nginx' without a password. Check /etc/sudoers.d/deploy."
+instructions: |
+  ## Your mission: Set up the deploy user
+
+  A deployment pipeline needs a `deploy` user that can restart nginx without a password prompt.
+
+  ---
+
+  ### Step 1 — Create the user
+  ```
+  useradd -m -s /bin/bash deploy
+  ```
+
+  Verify:
+  ```
+  id deploy
+  grep deploy /etc/passwd
+  ```
+
+  ---
+
+  ### Step 2 — Add to www-data group
+  ```
+  usermod -aG www-data deploy
+  id deploy   # should show www-data in groups
+  ```
+
+  Common group flags:
+  - `-aG` = append to supplementary groups (do NOT omit `-a` or you'll remove all other groups)
+
+  ---
+
+  ### Step 3 — Grant passwordless sudo for one command
+
+  Create a sudoers drop-in file (safer than editing /etc/sudoers directly):
+  ```
+  visudo -f /etc/sudoers.d/deploy
+  ```
+
+  Add this line:
+  ```
+  deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx
+  ```
+
+  Syntax: `user  host=(run-as)  NOPASSWD: /full/path/to/command`
+
+  ---
+
+  ### Step 4 — Test it
+  ```
+  sudo -u deploy sudo systemctl restart nginx
+  ```
+
+  It should succeed with no password prompt.
+
+  Once all three tasks are done, click **Validate**.

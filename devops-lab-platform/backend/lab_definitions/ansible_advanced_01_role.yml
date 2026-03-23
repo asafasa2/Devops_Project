@@ -1,0 +1,175 @@
+id: ansible_advanced_01_role
+title: "Write a complete Ansible role from scratch"
+subject: ansible
+difficulty: advanced
+estimated_minutes: 45
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/ansible-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=ansible_adv_01
+objectives:
+  - "Create a proper Ansible role directory structure"
+  - "Write tasks with handlers for service restarts"
+  - "Use Jinja2 templates with variables"
+  - "Define role defaults and apply the role via a playbook"
+  - "Run the playbook successfully"
+setup_commands:
+  - "mkdir -p /workspace"
+  - |
+    cat > /workspace/inventory.ini << 'EOF'
+    [webservers]
+    localhost ansible_connection=local
+    EOF
+  - |
+    cat > /workspace/README.md << 'EOF'
+    # Ansible Role Challenge
+
+    Create a role called `webserver` that:
+    1. Installs nginx
+    2. Deploys a custom nginx.conf from a template
+    3. Deploys a custom index.html from a template
+    4. Uses a handler to restart nginx when config changes
+    5. Starts and enables the nginx service
+
+    Role structure:
+    ```
+    /workspace/roles/webserver/
+    ├── tasks/main.yml
+    ├── handlers/main.yml
+    ├── templates/
+    │   ├── nginx.conf.j2
+    │   └── index.html.j2
+    └── defaults/main.yml
+    ```
+
+    Then create a playbook at /workspace/site.yml that applies the role.
+    EOF
+validation_steps:
+  - command: "test -d /workspace/roles/webserver/tasks"
+    expected_exit: 0
+    hint: "Create the role directory structure: mkdir -p /workspace/roles/webserver/{tasks,handlers,templates,defaults}"
+  - command: "test -f /workspace/roles/webserver/tasks/main.yml"
+    expected_exit: 0
+    hint: "Create tasks/main.yml with the role's tasks."
+  - command: "test -f /workspace/roles/webserver/handlers/main.yml"
+    expected_exit: 0
+    hint: "Create handlers/main.yml with a handler to restart nginx."
+  - command: "test -f /workspace/roles/webserver/templates/nginx.conf.j2"
+    expected_exit: 0
+    hint: "Create a Jinja2 template for nginx.conf."
+  - command: "test -f /workspace/roles/webserver/defaults/main.yml"
+    expected_exit: 0
+    hint: "Create defaults/main.yml with default variable values."
+  - command: "test -f /workspace/site.yml"
+    expected_exit: 0
+    hint: "Create a playbook at /workspace/site.yml that applies the webserver role."
+  - command: "cd /workspace && ansible-playbook -i inventory.ini site.yml --syntax-check"
+    expected_exit: 0
+    hint: "The playbook has syntax errors. Run ansible-playbook --syntax-check to see them."
+  - command: "grep -q 'notify' /workspace/roles/webserver/tasks/main.yml"
+    expected_exit: 0
+    hint: "Tasks that change nginx config should use 'notify' to trigger the handler."
+instructions: |
+  ## Your mission: Write a complete Ansible role from scratch
+
+  Create an Ansible role called `webserver` that installs and configures nginx.
+  No starter code is provided — build the entire role structure yourself.
+
+  ### Step 1 — Create the role skeleton
+  ```
+  mkdir -p /workspace/roles/webserver/{tasks,handlers,templates,defaults}
+  ```
+
+  ### Step 2 — Write defaults/main.yml
+  Define default variables the role will use:
+  ```yaml
+  ---
+  server_port: 80
+  server_name: "devops-lab"
+  welcome_message: "Hello from Ansible!"
+  ```
+
+  ### Step 3 — Write templates
+
+  **templates/nginx.conf.j2:**
+  ```nginx
+  server {
+      listen {{ server_port }} default_server;
+      server_name {{ server_name }};
+
+      location / {
+          root /var/www/html;
+          index index.html;
+      }
+  }
+  ```
+
+  **templates/index.html.j2:**
+  ```html
+  <html>
+  <body>
+    <h1>{{ welcome_message }}</h1>
+    <p>Server: {{ server_name }}</p>
+    <p>Managed by Ansible</p>
+  </body>
+  </html>
+  ```
+
+  ### Step 4 — Write handlers/main.yml
+  ```yaml
+  ---
+  - name: restart nginx
+    service:
+      name: nginx
+      state: restarted
+  ```
+
+  ### Step 5 — Write tasks/main.yml
+  ```yaml
+  ---
+  - name: Install nginx
+    apt:
+      name: nginx
+      state: present
+      update_cache: yes
+
+  - name: Deploy nginx config
+    template:
+      src: nginx.conf.j2
+      dest: /etc/nginx/sites-available/default
+    notify: restart nginx
+
+  - name: Deploy index page
+    template:
+      src: index.html.j2
+      dest: /var/www/html/index.html
+
+  - name: Ensure nginx is started
+    service:
+      name: nginx
+      state: started
+      enabled: yes
+  ```
+
+  ### Step 6 — Write the playbook site.yml
+  ```yaml
+  ---
+  - hosts: webservers
+    become: yes
+    roles:
+      - webserver
+  ```
+
+  ### Step 7 — Test
+  ```
+  cd /workspace
+  ansible-playbook -i inventory.ini site.yml --syntax-check
+  ansible-playbook -i inventory.ini site.yml
+  curl http://localhost
+  ```
+
+  Once the syntax check passes and the role structure is complete, click **Validate**.

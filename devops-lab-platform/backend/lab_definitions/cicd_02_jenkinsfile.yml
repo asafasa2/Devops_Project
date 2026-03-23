@@ -1,0 +1,115 @@
+id: cicd_02_jenkinsfile
+title: "Fix a broken Jenkinsfile"
+subject: cicd
+difficulty: beginner
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/cicd-lab:latest
+    privileged: false
+    environment:
+      - LAB_ID=cicd_02
+objectives:
+  - "Read and understand Jenkinsfile declarative pipeline syntax"
+  - "Fix the missing 'agent' directive"
+  - "Add missing 'steps { }' blocks inside each stage"
+  - "Run the Jenkinsfile with /opt/lab/run-jenkinsfile"
+setup_commands:
+  - "mkdir -p /workspace"
+  - |
+    cat > /workspace/Jenkinsfile << 'EOF'
+    pipeline {
+        stages {
+            stage('Checkout') {
+                steps {
+                    echo 'Checking out source code...'
+                    echo 'Done'
+                }
+            }
+            stage('Build') {
+                echo 'Building the application...'
+                echo 'Build complete'
+            }
+            stage('Test') {
+                steps {
+                    echo 'Running unit tests...'
+                    echo 'Tests passed'
+                }
+            }
+            stage('Deploy') {
+                echo 'Deploying to staging...'
+                echo 'Deploy complete'
+            }
+        }
+    }
+    EOF
+validation_steps:
+  - command: "grep -q 'agent' /workspace/Jenkinsfile"
+    expected_exit: 0
+    hint: "Missing 'agent' directive. Add 'agent any' after the opening 'pipeline {' line."
+  - command: "grep -c 'steps {' /workspace/Jenkinsfile | xargs -I{} test {} -ge 4"
+    expected_exit: 0
+    hint: "Some stages are missing 'steps { }' blocks. Every stage must have a steps block wrapping its echo/sh commands."
+  - command: "/opt/lab/run-jenkinsfile /workspace/Jenkinsfile"
+    expected_exit: 0
+    hint: "Jenkinsfile still has errors. Read the validator output carefully."
+instructions: |
+  ## Your mission: Fix the broken Jenkinsfile
+
+  This Jenkinsfile has two types of errors:
+  1. Missing `agent` directive (required in every declarative pipeline)
+  2. Two stages (`Build` and `Deploy`) have commands directly inside `stage { }` instead of inside a `steps { }` block
+
+  ### Jenkinsfile declarative syntax
+
+  ```groovy
+  pipeline {
+      agent any           // ← REQUIRED: where to run (any available agent)
+
+      stages {
+          stage('Name') {
+              steps {     // ← REQUIRED: wrap all commands in steps { }
+                  echo 'hello'
+                  sh 'command'
+              }
+          }
+      }
+  }
+  ```
+
+  ### Step 1 — Read the Jenkinsfile
+  ```
+  cat /workspace/Jenkinsfile
+  ```
+
+  ### Step 2 — Add the missing agent directive
+  ```
+  nano /workspace/Jenkinsfile
+  ```
+
+  After `pipeline {`, add:
+  ```
+  agent any
+  ```
+
+  ### Step 3 — Fix the stages missing steps blocks
+
+  The `Build` and `Deploy` stages have their `echo` commands directly inside
+  `stage { }` instead of inside `steps { }`. Wrap them:
+  ```groovy
+  stage('Build') {
+      steps {          // ← add this
+          echo 'Building the application...'
+          echo 'Build complete'
+      }                // ← and this
+  }
+  ```
+
+  ### Step 4 — Validate and run
+  ```
+  /opt/lab/run-jenkinsfile /workspace/Jenkinsfile
+  ```
+
+  Once it prints `Pipeline Result: SUCCESS`, click **Validate**.

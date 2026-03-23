@@ -1,0 +1,72 @@
+id: linux_01_systemd
+title: "Breaking and fixing a systemd service"
+subject: linux
+difficulty: beginner
+estimated_minutes: 20
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_01
+objectives:
+  - "Use journalctl -u nginx to find the failure reason"
+  - "Locate the broken ExecStart= line with systemctl cat nginx"
+  - "Edit /lib/systemd/system/nginx.service — restore ExecStart=/usr/sbin/nginx -g 'daemon on; master_process on;'"
+  - "Run systemctl daemon-reload && systemctl restart nginx"
+  - "Confirm nginx is active with systemctl is-active nginx"
+setup_commands:
+  - "systemctl start nginx"
+  - "sleep 2"
+  - "sed -i 's|ExecStart=.*|ExecStart=/usr/bin/nonexistent-binary|' /lib/systemd/system/nginx.service"
+  - "systemctl daemon-reload"
+  - "systemctl restart nginx || true"
+validation_steps:
+  - command: "systemctl is-active nginx"
+    expected_exit: 0
+    hint: "nginx is not running. Check 'journalctl -u nginx' and fix the ExecStart= line in /lib/systemd/system/nginx.service."
+  - command: "curl -s -o /dev/null -w '%{http_code}' http://localhost"
+    expected_exit: 0
+    hint: "nginx is running but not serving HTTP on port 80. Make sure it started cleanly."
+instructions: |
+  ## Your mission: Fix the broken nginx service
+
+  The nginx web server has been deliberately broken. Your job is to diagnose the problem
+  and fix it using standard Linux tools.
+
+  ### Steps to follow
+
+  1. **Check the service status**
+     ```
+     systemctl status nginx
+     ```
+
+  2. **Read the logs to find the error**
+     ```
+     journalctl -u nginx --no-pager
+     ```
+
+  3. **Inspect the unit file**
+     ```
+     systemctl cat nginx
+     ```
+
+  4. **Fix the ExecStart= line**
+
+     Edit `/lib/systemd/system/nginx.service` with `nano` or `vim` and restore
+     the correct ExecStart line:
+     `ExecStart=/usr/sbin/nginx -g 'daemon on; master_process on;'`
+
+  5. **Reload and restart**
+     ```
+     systemctl daemon-reload
+     systemctl restart nginx
+     ```
+
+  6. **Verify it is active**
+     ```
+     systemctl is-active nginx
+     curl http://localhost
+     ```
+
+  Once nginx is serving HTTP, click **Validate** to confirm your fix.

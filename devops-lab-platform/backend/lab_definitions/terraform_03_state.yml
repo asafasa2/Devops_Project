@@ -1,0 +1,128 @@
+id: terraform_03_state
+title: "Terraform state management and destroy"
+subject: terraform
+difficulty: intermediate
+estimated_minutes: 30
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/terraform-lab:latest
+    privileged: false
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LAB_ID=terraform_03
+objectives:
+  - "Understand what terraform.tfstate contains and why it matters"
+  - "Use terraform plan to detect infrastructure drift"
+  - "Reconcile drifted state with terraform apply"
+  - "Clean up all resources with terraform destroy"
+setup_commands:
+  - "mkdir -p /workspace"
+  - |
+    cat > /workspace/main.tf << 'EOF'
+    terraform {
+      required_providers {
+        docker = {
+          source  = "kreuzwerker/docker"
+          version = "~> 3.0"
+        }
+      }
+    }
+
+    provider "docker" {}
+
+    resource "docker_image" "nginx" {
+      name = "nginx:alpine"
+    }
+
+    resource "docker_container" "nginx" {
+      name  = "lab-nginx"
+      image = docker_image.nginx.image_id
+
+      ports {
+        internal = 80
+        external = 18080
+      }
+    }
+    EOF
+  - "cd /workspace && terraform init -input=false > /tmp/tf_init.log 2>&1"
+  - "cd /workspace && terraform apply -auto-approve -input=false > /tmp/tf_apply.log 2>&1"
+  - "docker rm -f lab-nginx 2>/dev/null || true"
+validation_steps:
+  - command: "terraform -chdir=/workspace show"
+    expected_exit: 0
+    hint: "The state file must be intact. Run 'terraform show' to inspect what Terraform thinks exists."
+  - command: "terraform -chdir=/workspace show | grep -q 'docker_container'"
+    expected_exit: 0
+    hint: "After 'terraform apply', the state should contain a docker_container resource."
+  - command: "docker ps -a --format '{{.Names}}' | grep -q '^lab-nginx$'"
+    expected_exit: 1
+    hint: "After 'terraform destroy -auto-approve', the lab-nginx container should be gone."
+instructions: |
+  ## Your mission: Detect drift and manage state
+
+  Terraform tracks what it has created in a **state file** (`terraform.tfstate`).
+  The lab has already applied a configuration that created a Docker container — then
+  manually deleted that container behind Terraform's back. This is called **drift**.
+
+  ### Step 1 — Inspect the state
+
+  ```bash
+  cd /workspace
+  cat terraform.tfstate | jq '.resources[].type'
+  terraform show
+  ```
+
+  Terraform still thinks the container exists. But does Docker agree?
+
+  ```bash
+  docker ps -a | grep lab-nginx
+  ```
+
+  ### Step 2 — Detect drift with terraform plan
+
+  ```bash
+  terraform plan
+  ```
+
+  Terraform will show a `+` (create) action — it wants to recreate the container
+  because the real state diverged from the desired state.
+
+  ### Step 3 — Reconcile with terraform apply
+
+  ```bash
+  terraform apply -auto-approve
+  ```
+
+  This recreates the container so reality matches the config again.
+
+  Verify:
+  ```bash
+  docker ps | grep lab-nginx
+  ```
+
+  ### Step 4 — Clean up with terraform destroy
+
+  When you want to tear everything down:
+
+  ```bash
+  terraform destroy -auto-approve
+  ```
+
+  Terraform will remove every resource it manages and update the state file.
+
+  Verify:
+  ```bash
+  docker ps -a | grep lab-nginx   # should return nothing
+  terraform show                  # state should be empty
+  ```
+
+  ### Why state matters
+
+  - State is the source of truth for Terraform — never delete it manually
+  - If state and reality diverge, `terraform plan` shows what needs fixing
+  - Remote state (S3, Terraform Cloud) is used in teams so everyone shares the same view
+
+  Click **Validate** after running `terraform destroy -auto-approve`.

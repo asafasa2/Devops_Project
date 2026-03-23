@@ -1,0 +1,101 @@
+id: networking_04_tls
+title: "Generate a TLS certificate and configure HTTPS"
+subject: networking
+difficulty: intermediate
+estimated_minutes: 30
+containers:
+  - name: lab-host
+    image: devops-lab/networking-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=networking_04
+objectives:
+  - "Generate a self-signed certificate with openssl"
+  - "Configure nginx to serve HTTPS on port 443"
+  - "Verify the TLS handshake with openssl s_client"
+  - "Inspect the certificate details"
+setup_commands:
+  - "systemctl start nginx"
+  - "mkdir -p /etc/nginx/ssl"
+  - |
+    cat > /etc/nginx/sites-available/default << 'EOF'
+    server {
+        listen 80;
+        server_name localhost;
+        return 301 https://$host$request_uri;
+    }
+    server {
+        listen 443 ssl;
+        server_name localhost;
+        ssl_certificate /etc/nginx/ssl/lab.crt;
+        ssl_certificate_key /etc/nginx/ssl/lab.key;
+        location / {
+            root /var/www/html;
+            index index.html;
+        }
+    }
+    EOF
+  - "systemctl reload nginx || true"
+validation_steps:
+  - command: "test -f /etc/nginx/ssl/lab.crt && test -f /etc/nginx/ssl/lab.key"
+    expected_exit: 0
+    hint: "Certificate files not found. Generate them with openssl req -x509 -nodes -newkey rsa:2048 -keyout /etc/nginx/ssl/lab.key -out /etc/nginx/ssl/lab.crt -days 365 -subj '/CN=localhost'"
+  - command: "systemctl is-active nginx"
+    expected_exit: 0
+    hint: "nginx is not running. After generating certs, run: systemctl restart nginx"
+  - command: "openssl s_client -connect localhost:443 -verify_quiet </dev/null 2>&1 | grep -q 'CONNECTED'"
+    expected_exit: 0
+    hint: "TLS handshake failed. Check nginx config with: nginx -t and review /var/log/nginx/error.log"
+  - command: "openssl x509 -in /etc/nginx/ssl/lab.crt -noout -subject | grep -q 'CN'"
+    expected_exit: 0
+    hint: "Certificate is missing or malformed. Regenerate it with the openssl command from the instructions."
+instructions: |
+  ## Your mission: Add HTTPS to nginx
+
+  nginx is configured for HTTPS but the certificate files are missing.
+  Generate a self-signed certificate and restart nginx.
+
+  ### Step 1 — Generate a self-signed certificate
+
+  Use `openssl req -x509` to create a certificate + key in one command:
+  ```
+  openssl req -x509 -nodes -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/lab.key \
+    -out /etc/nginx/ssl/lab.crt \
+    -days 365 \
+    -subj "/C=IL/ST=Lab/L=Lab/O=DevOps/CN=localhost"
+  ```
+
+  Flags explained:
+  - `-x509` — output a self-signed certificate (not a CSR)
+  - `-nodes` — no passphrase on the private key
+  - `-newkey rsa:2048` — generate a new 2048-bit RSA key
+  - `-days 365` — certificate valid for 1 year
+  - `-subj` — certificate subject (avoids interactive prompts)
+
+  ### Step 2 — Verify the files exist
+  ```
+  ls -la /etc/nginx/ssl/
+  openssl x509 -in /etc/nginx/ssl/lab.crt -noout -text | head -20
+  ```
+
+  ### Step 3 — Restart nginx
+  ```
+  nginx -t          # test config first
+  systemctl restart nginx
+  systemctl status nginx
+  ```
+
+  ### Step 4 — Test the TLS handshake
+  ```
+  openssl s_client -connect localhost:443 </dev/null
+  ```
+
+  Look for `CONNECTED` and `Verify return code: 18 (self signed certificate)`.
+  A self-signed cert is expected — the important part is that TLS works.
+
+  ```
+  curl -k https://localhost    # -k skips certificate verification
+  ```
+
+  Once the TLS handshake succeeds, click **Validate**.

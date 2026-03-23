@@ -1,0 +1,109 @@
+id: security_01_ssh
+title: "Harden SSH server configuration"
+subject: security
+difficulty: beginner
+estimated_minutes: 25
+containers:
+  - name: lab-host
+    image: devops-lab/security-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=sec_01
+objectives:
+  - "Disable root login via SSH"
+  - "Disable password authentication"
+  - "Change the SSH port to 2222"
+  - "Set MaxAuthTries to 3"
+  - "Restart sshd with the hardened config"
+setup_commands:
+  - |
+    # Ensure SSH is running with default (insecure) config
+    cat > /etc/ssh/sshd_config << 'EOF'
+    Port 22
+    PermitRootLogin yes
+    PasswordAuthentication yes
+    MaxAuthTries 6
+    PubkeyAuthentication yes
+    ChallengeResponseAuthentication no
+    UsePAM yes
+    X11Forwarding no
+    PrintMotd no
+    AcceptEnv LANG LC_*
+    Subsystem sftp /usr/lib/openssh/sftp-server
+    EOF
+  - "systemctl restart ssh || true"
+  - |
+    # Generate SSH key pair for labuser
+    mkdir -p /home/labuser/.ssh
+    ssh-keygen -t ed25519 -f /home/labuser/.ssh/id_ed25519 -N '' -q
+    cp /home/labuser/.ssh/id_ed25519.pub /home/labuser/.ssh/authorized_keys
+    chown -R labuser:labuser /home/labuser/.ssh
+    chmod 700 /home/labuser/.ssh
+    chmod 600 /home/labuser/.ssh/authorized_keys
+validation_steps:
+  - command: "sshd -T 2>/dev/null | grep -qi 'permitrootlogin no'"
+    expected_exit: 0
+    hint: "Set 'PermitRootLogin no' in /etc/ssh/sshd_config and restart sshd."
+  - command: "sshd -T 2>/dev/null | grep -qi 'passwordauthentication no'"
+    expected_exit: 0
+    hint: "Set 'PasswordAuthentication no' to enforce key-only authentication."
+  - command: "sshd -T 2>/dev/null | grep -qi 'port 2222'"
+    expected_exit: 0
+    hint: "Change 'Port' to 2222 in sshd_config."
+  - command: "sshd -T 2>/dev/null | grep -qi 'maxauthtries 3'"
+    expected_exit: 0
+    hint: "Set 'MaxAuthTries 3' to limit brute-force attempts."
+  - command: "systemctl is-active ssh"
+    expected_exit: 0
+    hint: "sshd must be running. Restart it after making config changes: systemctl restart ssh"
+instructions: |
+  ## Your mission: Harden the SSH server
+
+  The SSH server has a dangerously permissive configuration:
+  - Root login is allowed
+  - Password authentication is enabled
+  - Default port 22
+  - 6 authentication attempts allowed
+
+  ### Step 1 — Review the current config
+  ```
+  cat /etc/ssh/sshd_config
+  sshd -T | grep -i 'permitroot\|passwordauth\|port\|maxauth'
+  ```
+
+  ### Step 2 — Edit the configuration
+  ```
+  nano /etc/ssh/sshd_config
+  ```
+
+  Make these changes:
+  ```
+  Port 2222
+  PermitRootLogin no
+  PasswordAuthentication no
+  MaxAuthTries 3
+  ```
+
+  ### Step 3 — Test the config
+  ```
+  sshd -t
+  ```
+  This checks for syntax errors without restarting.
+
+  ### Step 4 — Restart SSH
+  ```
+  systemctl restart ssh
+  ```
+
+  ### Step 5 — Verify
+  ```
+  sshd -T | grep -i 'permitroot\|passwordauth\|port\|maxauth'
+  ```
+
+  **Why this matters:**
+  - Disabling root login prevents direct attacks on the root account
+  - Key-only auth eliminates password brute-force attacks entirely
+  - Non-standard ports reduce automated scanning noise
+  - Low MaxAuthTries limits brute-force window per connection
+
+  Once all settings are applied, click **Validate**.

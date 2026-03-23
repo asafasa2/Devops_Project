@@ -1,0 +1,127 @@
+id: ansible_02_playbook
+title: "Write an Ansible playbook"
+subject: ansible
+difficulty: beginner
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/ansible-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=ansible_02
+objectives:
+  - "Fix YAML indentation errors in a playbook"
+  - "Correct the apt module argument (name, not package)"
+  - "Add a missing name field to a task"
+  - "Run the playbook successfully against localhost"
+setup_commands:
+  - "systemctl start ssh || true"
+  - |
+    cat > /workspace/inventory.ini << 'EOF'
+    [local]
+    localhost ansible_connection=local
+
+    [webservers]
+    localhost ansible_connection=local
+
+    [all:vars]
+    ansible_python_interpreter=/usr/bin/python3
+    EOF
+  - |
+    cat > /workspace/playbook.yml << 'EOF'
+    ---
+    - name: Configure application server
+      hosts: local
+      become: true
+      tasks:
+      # BUG 1: missing "name:" field on this task
+      - apt:
+          package: curl        # BUG 2: wrong argument — should be "name:", not "package:"
+          state: present
+
+        - name: Create application directory
+          file:
+            path: /opt/app
+            state: directory
+            mode: '0755'
+
+      - name: Write config file
+        copy:
+          content: "app_env=production\n"
+          dest: /opt/app/config.txt
+    EOF
+validation_steps:
+  - command: "ansible-playbook --syntax-check -i /workspace/inventory.ini /workspace/playbook.yml"
+    expected_exit: 0
+    hint: "Fix YAML indentation — all tasks must be at the same indent level under 'tasks:'. The task missing 'name:' also needs one."
+  - command: "ansible-playbook -i /workspace/inventory.ini /workspace/playbook.yml"
+    expected_exit: 0
+    hint: "The apt module uses 'name:' not 'package:'. Example: apt: { name: curl, state: present }"
+  - command: "test -f /opt/app/config.txt"
+    expected_exit: 0
+    hint: "The playbook should create /opt/app/config.txt. Make sure the copy task runs successfully."
+instructions: |
+  ## Your mission: Fix and run an Ansible playbook
+
+  The playbook at `/workspace/playbook.yml` has three bugs: a missing `name:` field,
+  a wrong module argument, and bad YAML indentation. Fix all three and run it.
+
+  ### Playbook structure
+
+  ```yaml
+  ---
+  - name: Play description
+    hosts: all
+    become: true
+    tasks:
+      - name: Task description       # required
+        module_name:
+          argument: value
+  ```
+
+  Note: every item under `tasks:` must be indented at the same level and start with `- name:`.
+
+  ### Bug 1 — Missing name field
+
+  Every task needs a `name:` line. Without it, Ansible errors out on `--syntax-check`.
+
+  ```yaml
+  tasks:
+    - name: Install curl        # add this
+      apt:
+        name: curl
+        state: present
+  ```
+
+  ### Bug 2 — Wrong apt argument
+
+  The `apt` module uses `name:` not `package:`:
+
+  ```yaml
+  - name: Install curl
+    apt:
+      name: curl          # correct
+      state: present
+  ```
+
+  ### Bug 3 — Indentation
+
+  All tasks must be at the same indent level (2 spaces under `tasks:`). The second task
+  has extra indentation — fix it.
+
+  ### Run the playbook
+
+  ```bash
+  # Check syntax first
+  ansible-playbook --syntax-check -i /workspace/inventory.ini /workspace/playbook.yml
+
+  # Run it
+  ansible-playbook -i /workspace/inventory.ini /workspace/playbook.yml
+
+  # Verify the file was created
+  cat /opt/app/config.txt
+  ```
+
+  Click **Validate** when all three checks pass.

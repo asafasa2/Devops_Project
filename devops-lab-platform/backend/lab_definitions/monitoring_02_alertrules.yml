@@ -1,0 +1,138 @@
+id: monitoring_02_alertrules
+title: "Write and validate Prometheus alerting rules"
+subject: monitoring
+difficulty: beginner
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/monitoring-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=monitoring_02
+objectives:
+  - "Understand Prometheus alerting rule YAML structure"
+  - "Fix PromQL expression syntax errors"
+  - "Fix invalid duration formats in 'for:' fields"
+  - "Add required annotations block to an alert"
+  - "Validate rules with promtool and load them into Prometheus"
+setup_commands:
+  - "systemctl start prometheus-node-exporter || true"
+  - "systemctl start prometheus || true"
+  - "sleep 3"
+  - "mkdir -p /etc/prometheus/rules"
+  - |
+    cat > /etc/prometheus/rules/lab_alerts.yml << 'EOF'
+    groups:
+      - name: lab_alerts
+        rules:
+          - alert: HighCPUUsage
+            # BUG 1: missing closing parenthesis in PromQL expression
+            expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100
+            for: 5minute    # BUG 2: invalid duration — should be "5m"
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU on {{ $labels.instance }}"
+              description: "CPU usage is above 80% for more than 5 minutes"
+
+          - alert: PrometheusTargetDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: critical
+            # BUG 3: annotations block is missing entirely — add it
+
+          - alert: ScrapeDurationHigh
+            expr: scrape_duration_seconds > 0.5
+            for: 2minutes    # BUG 4: invalid duration — should be "2m"
+            labels:
+              severity: warning
+            annotations:
+              summary: "Slow scrape on {{ $labels.instance }}"
+    EOF
+  - "curl -s -X POST http://localhost:9090/-/reload || true"
+validation_steps:
+  - command: "promtool check rules /etc/prometheus/rules/lab_alerts.yml"
+    expected_exit: 0
+    hint: "Run 'promtool check rules /etc/prometheus/rules/lab_alerts.yml' to see all errors. Fix PromQL syntax, duration formats, and the missing annotations block."
+  - command: "grep -q 'annotations' /etc/prometheus/rules/lab_alerts.yml"
+    expected_exit: 0
+    hint: "The PrometheusTargetDown alert is missing an 'annotations:' block. Add at least a 'summary:' annotation."
+  - command: "curl -s http://localhost:9090/api/v1/rules | jq -e '[.data.groups[].rules[] | select(.name==\"HighCPUUsage\")] | length > 0'"
+    expected_exit: 0
+    hint: "After fixing the rules file, reload Prometheus: curl -X POST http://localhost:9090/-/reload"
+instructions: |
+  ## Your mission: Fix and load Prometheus alerting rules
+
+  The rules file at `/etc/prometheus/rules/lab_alerts.yml` has four bugs.
+  Fix them, validate with `promtool`, then reload Prometheus to load the rules.
+
+  ### Alerting rule structure
+
+  ```yaml
+  groups:
+    - name: group_name
+      rules:
+        - alert: AlertName
+          expr: <PromQL expression>   # condition that triggers
+          for: 5m                     # must be true for this long
+          labels:
+            severity: warning
+          annotations:
+            summary: "Short description"
+            description: "Longer description, can use {{ $labels.instance }}"
+  ```
+
+  ### Bug 1 — Unbalanced parentheses in PromQL
+
+  Count the opening and closing parens:
+  ```
+  100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100
+  ```
+  There are 4 `(` but only 3 `)`. Add the missing `)` at the end:
+  ```
+  100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+  ```
+
+  ### Bug 2 & 4 — Invalid duration format
+
+  Prometheus uses Go durations: `s`, `m`, `h`, `d`. The word `minute` and `minutes` are invalid:
+  ```yaml
+  for: 5m     # correct
+  for: 2m     # correct
+  ```
+
+  ### Bug 3 — Missing annotations block
+
+  The `PrometheusTargetDown` alert has no `annotations:` block. Add one:
+  ```yaml
+  annotations:
+    summary: "Target {{ $labels.instance }} is down"
+    description: "{{ $labels.job }}/{{ $labels.instance }} has been unreachable for 1 minute"
+  ```
+
+  ### Validate and reload
+
+  ```bash
+  # Check syntax
+  promtool check rules /etc/prometheus/rules/lab_alerts.yml
+
+  # Reload Prometheus (no restart needed — it supports hot reload)
+  curl -X POST http://localhost:9090/-/reload
+
+  # Verify rules are loaded
+  curl -s http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[].name'
+
+  # Check current alert states
+  curl -s http://localhost:9090/api/v1/alerts | jq '.data.alerts[] | {alert: .labels.alertname, state: .state}'
+  ```
+
+  ### Why alerting rules matter
+
+  Rules let Prometheus evaluate PromQL expressions on every `evaluation_interval`.
+  When the expression is true for the `for` duration, the alert fires and can be
+  routed to Alertmanager → PagerDuty / Slack / email.
+
+  Click **Validate** when `promtool check rules` passes and the rules appear in the Prometheus API.

@@ -1,0 +1,78 @@
+id: networking_02_routing
+title: "Fix a broken default route"
+subject: networking
+difficulty: beginner
+estimated_minutes: 20
+containers:
+  - name: lab-host
+    image: devops-lab/networking-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=networking_02
+objectives:
+  - "Inspect the routing table with ip route show"
+  - "Identify the incorrect default gateway"
+  - "Delete the broken default route"
+  - "Add the correct default route via 172.17.0.1"
+  - "Confirm connectivity with ping and ip route show"
+setup_commands:
+  - "ip route del default 2>/dev/null || true"
+  - "ip route add default via 192.168.99.99 dev eth0 2>/dev/null || ip route add default via 192.168.99.99 2>/dev/null || true"
+validation_steps:
+  - command: "ip route show default | grep -qv '192.168.99.99'"
+    expected_exit: 0
+    hint: "The broken gateway 192.168.99.99 is still the default route. Delete it: ip route del default via 192.168.99.99"
+  - command: "ip route show default | grep -q 'default'"
+    expected_exit: 0
+    hint: "No default route is set. Add one: ip route add default via 172.17.0.1"
+  - command: "ping -c 1 -W 3 8.8.8.8"
+    expected_exit: 0
+    hint: "Cannot reach 8.8.8.8. Check that the correct default gateway is set with 'ip route show default'."
+instructions: |
+  ## Your mission: Fix the default route
+
+  The default gateway is set to a non-existent IP (192.168.99.99).
+  All outbound traffic is being sent to a dead end. Fix the routing table.
+
+  ### Step 1 — Inspect the routing table
+  ```
+  ip route show
+  ```
+
+  Look for the `default via` line — this is the gateway all non-local traffic uses.
+
+  **Reading route output:**
+  ```
+  default via 192.168.99.99 dev eth0   ← wrong gateway
+  172.17.0.0/16 dev eth0 proto kernel  ← local network (correct)
+  ```
+
+  ### Step 2 — Delete the broken default route
+  ```
+  ip route del default via 192.168.99.99
+  ```
+
+  ### Step 3 — Add the correct default route
+
+  The correct gateway for Docker containers is typically `172.17.0.1`:
+  ```
+  ip route add default via 172.17.0.1
+  ```
+
+  ### Step 4 — Verify
+  ```
+  ip route show default
+  ping -c 3 8.8.8.8
+  ```
+
+  Once ping succeeds, click **Validate**.
+
+  ---
+
+  **Key ip route commands:**
+  | Command | Purpose |
+  |---------|---------|
+  | `ip route show` | List all routes |
+  | `ip route add default via <gw>` | Set default gateway |
+  | `ip route del default` | Remove default route |
+  | `ip route get 8.8.8.8` | Show which route a packet would use |

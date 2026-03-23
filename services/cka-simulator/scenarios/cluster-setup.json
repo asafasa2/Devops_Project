@@ -1,0 +1,113 @@
+{
+  "id": "cluster-setup",
+  "title": "Cluster Setup and Management",
+  "description": "Initialize and configure a Kubernetes cluster using kubeadm",
+  "timeLimit": 30,
+  "difficulty": "medium",
+  "weight": 25,
+  "context": "You have been given access to three Ubuntu 22.04 nodes: master, worker1, and worker2. Your task is to set up a functional Kubernetes cluster.",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Initialize the master node",
+      "description": "Initialize a Kubernetes cluster on the master node using kubeadm with pod network CIDR 192.168.0.0/16",
+      "points": 8,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get nodes --no-headers | grep master | grep Ready"
+        ],
+        "expectedOutputs": ["Ready"]
+      },
+      "hints": [
+        "Use 'kubeadm init' with the --pod-network-cidr flag",
+        "Don't forget to set up kubectl access after initialization",
+        "Check the kubeadm documentation for the exact syntax"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Install CNI plugin",
+      "description": "Install Calico CNI plugin to enable pod networking",
+      "points": 5,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pods -n calico-system --no-headers | grep Running | wc -l"
+        ],
+        "expectedOutputs": ["3", "4", "5"]
+      },
+      "hints": [
+        "Apply the Calico manifest from the official documentation",
+        "Wait for all Calico pods to be in Running state",
+        "Use 'kubectl get pods -n calico-system' to check status"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Join worker nodes",
+      "description": "Join worker1 and worker2 nodes to the cluster",
+      "points": 7,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get nodes --no-headers | grep Ready | wc -l"
+        ],
+        "expectedOutputs": ["3"]
+      },
+      "hints": [
+        "Generate join command using 'kubeadm token create --print-join-command'",
+        "Execute the join command on each worker node",
+        "Verify all nodes show as Ready"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Verify cluster health",
+      "description": "Ensure all system pods are running and nodes are ready",
+      "points": 5,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pods -n kube-system --no-headers | grep -v Running | wc -l"
+        ],
+        "expectedOutputs": ["0"]
+      },
+      "hints": [
+        "Check system pods with 'kubectl get pods -n kube-system'",
+        "All pods should be in Running or Completed state",
+        "Use 'kubectl describe pod' to troubleshoot any issues"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "name": "kubeconfig-sample",
+      "path": "/opt/course/cluster-setup/kubeconfig",
+      "content": "# Sample kubeconfig will be generated after cluster init"
+    }
+  ],
+  "solution": [
+    "# Step 1: Initialize master node",
+    "sudo kubeadm init --pod-network-cidr=192.168.0.0/16",
+    "",
+    "# Step 2: Set up kubectl",
+    "mkdir -p $HOME/.kube",
+    "sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config",
+    "sudo chown $(id -u):$(id -g) $HOME/.kube/config",
+    "",
+    "# Step 3: Install Calico CNI",
+    "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/tigera-operator.yaml",
+    "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/custom-resources.yaml",
+    "",
+    "# Step 4: Generate join command",
+    "kubeadm token create --print-join-command",
+    "",
+    "# Step 5: On worker nodes, run the join command",
+    "# sudo <join-command-from-step-4>",
+    "",
+    "# Step 6: Verify cluster",
+    "kubectl get nodes",
+    "kubectl get pods -A"
+  ]
+}

@@ -1,0 +1,99 @@
+id: security_03_audit
+title: "Set up auditd to monitor sensitive files"
+subject: security
+difficulty: intermediate
+estimated_minutes: 25
+containers:
+  - name: lab-host
+    image: devops-lab/security-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=sec_03
+objectives:
+  - "Start the auditd service"
+  - "Add audit rules to watch /etc/passwd and /etc/shadow"
+  - "Add audit rules to watch /etc/sudoers"
+  - "Persist rules to a rules file"
+  - "Trigger and search audit events"
+setup_commands:
+  - |
+    # Clean any existing audit rules
+    auditctl -D 2>/dev/null || true
+    rm -f /etc/audit/rules.d/lab.rules
+  - "systemctl start auditd 2>/dev/null || auditd &"
+  - "sleep 1"
+validation_steps:
+  - command: "auditctl -l 2>/dev/null | grep -q '/etc/passwd'"
+    expected_exit: 0
+    hint: "Add a watch on /etc/passwd: auditctl -w /etc/passwd -p wa -k user_changes"
+  - command: "auditctl -l 2>/dev/null | grep -q '/etc/shadow'"
+    expected_exit: 0
+    hint: "Add a watch on /etc/shadow: auditctl -w /etc/shadow -p wa -k password_changes"
+  - command: "auditctl -l 2>/dev/null | grep -q '/etc/sudoers'"
+    expected_exit: 0
+    hint: "Add a watch on /etc/sudoers: auditctl -w /etc/sudoers -p wa -k sudo_changes"
+  - command: "test -f /etc/audit/rules.d/lab.rules"
+    expected_exit: 0
+    hint: "Persist your rules to /etc/audit/rules.d/lab.rules so they survive reboots."
+  - command: "grep -q '/etc/passwd' /etc/audit/rules.d/lab.rules"
+    expected_exit: 0
+    hint: "The rules file should contain the /etc/passwd watch rule."
+instructions: |
+  ## Your mission: Set up auditd monitoring
+
+  auditd is the Linux Audit daemon — it tracks security-relevant events
+  like file access, permission changes, and command execution.
+
+  ### Step 1 — Check auditd status
+  ```
+  systemctl status auditd
+  auditctl -l                 # list current rules (should be empty)
+  ```
+
+  ### Step 2 — Add file watches
+
+  Watch for writes and attribute changes to sensitive files:
+  ```
+  auditctl -w /etc/passwd -p wa -k user_changes
+  auditctl -w /etc/shadow -p wa -k password_changes
+  auditctl -w /etc/sudoers -p wa -k sudo_changes
+  ```
+
+  Flags:
+  - `-w` = watch this file
+  - `-p wa` = trigger on **w**rite and **a**ttribute changes
+  - `-k` = key (tag for searching)
+
+  ### Step 3 — Verify rules loaded
+  ```
+  auditctl -l
+  ```
+
+  ### Step 4 — Trigger an event
+  ```
+  useradd testaudit 2>/dev/null || echo "user exists"
+  ```
+
+  ### Step 5 — Search audit logs
+  ```
+  ausearch -k user_changes --raw | tail -5
+  ```
+
+  ### Step 6 — Persist rules
+
+  Write rules to a file so they survive reboots:
+  ```
+  cat > /etc/audit/rules.d/lab.rules << 'EOF'
+  -w /etc/passwd -p wa -k user_changes
+  -w /etc/shadow -p wa -k password_changes
+  -w /etc/sudoers -p wa -k sudo_changes
+  EOF
+  ```
+
+  **Why auditd matters:**
+  - Required by many compliance frameworks (PCI-DSS, SOC2, HIPAA)
+  - Tracks who changed what and when
+  - Tamper-resistant logging (harder to cover tracks)
+  - Essential for incident forensics
+
+  Once all rules are active and persisted, click **Validate**.

@@ -1,0 +1,68 @@
+id: linux_03_permissions
+title: "Fix broken file permissions"
+subject: linux
+difficulty: beginner
+estimated_minutes: 20
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_03
+objectives:
+  - "Give labuser read access to /etc/lab/config using chmod/chown"
+  - "Set the sticky bit on /srv/shared so users cannot delete each other's files"
+  - "Verify access with sudo -u labuser"
+setup_commands:
+  - "useradd -m -s /bin/bash labuser"
+  - "mkdir -p /etc/lab /srv/shared"
+  - "echo 'DB_PASSWORD=secret123' > /etc/lab/config"
+  - "chmod 600 /etc/lab/config"
+  - "chown root:root /etc/lab/config"
+  - "chmod 777 /srv/shared"
+  - "touch /srv/shared/rootfile"
+validation_steps:
+  - command: "sudo -u labuser cat /etc/lab/config"
+    expected_exit: 0
+    hint: "labuser cannot read /etc/lab/config. Check ownership and permissions with ls -l /etc/lab/config."
+  - command: "stat -c '%a' /srv/shared | grep -q '^1'"
+    expected_exit: 0
+    hint: "/srv/shared does not have the sticky bit set. Use chmod +t /srv/shared or chmod 1777."
+instructions: |
+  ## Your mission: Fix two permission problems
+
+  There are two broken permission scenarios. Fix both.
+
+  ---
+
+  ### Problem 1 — labuser can't read the config file
+
+  The app user `labuser` needs to read `/etc/lab/config`, but the file is only readable by root.
+
+  Options:
+  - Change the file owner to `labuser`: `chown labuser /etc/lab/config`
+  - Or add read permission for others: `chmod o+r /etc/lab/config`
+  - Or add `labuser` to a group and use group permissions
+
+  Test your fix:
+  ```
+  sudo -u labuser cat /etc/lab/config
+  ```
+
+  ---
+
+  ### Problem 2 — /srv/shared needs the sticky bit
+
+  `/srv/shared` is a shared directory (world-writable), but without the sticky bit any user
+  can delete other users' files. Fix it:
+
+  ```
+  chmod +t /srv/shared
+  ls -ld /srv/shared    # should show drwxrwxrwt
+  ```
+
+  The sticky bit (`t` at the end of the mode) means only the file owner can delete their files.
+
+  ---
+
+  Once both are fixed, click **Validate**.

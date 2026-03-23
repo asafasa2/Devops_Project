@@ -1,0 +1,193 @@
+id: cicd_advanced_01_pipeline
+title: "Build a complete CI/CD pipeline from scratch"
+subject: cicd
+difficulty: advanced
+estimated_minutes: 40
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/cicd-lab:latest
+    privileged: false
+    environment:
+      - LAB_ID=cicd_adv_01
+objectives:
+  - "Write a multi-stage pipeline.yml from scratch"
+  - "Implement lint, test, build, and deploy stages"
+  - "Handle artifacts between stages correctly"
+  - "Ensure the pipeline passes end-to-end"
+setup_commands:
+  - "mkdir -p /workspace/src /workspace/tests"
+  - |
+    cat > /workspace/src/app.py << 'EOF'
+    #!/usr/bin/env python3
+    """Calculator application."""
+
+    def add(a, b):
+        return a + b
+
+    def subtract(a, b):
+        return a - b
+
+    def multiply(a, b):
+        return a * b
+
+    def divide(a, b):
+        if b == 0:
+            raise ValueError("Cannot divide by zero")
+        return a / b
+
+    if __name__ == "__main__":
+        print(f"2 + 3 = {add(2, 3)}")
+        print(f"10 - 4 = {subtract(10, 4)}")
+        print(f"6 * 7 = {multiply(6, 7)}")
+        print(f"15 / 3 = {divide(15, 3)}")
+    EOF
+  - |
+    cat > /workspace/src/requirements.txt << 'EOF'
+    # No external dependencies
+    EOF
+  - |
+    cat > /workspace/tests/test_app.py << 'EOF'
+    #!/usr/bin/env python3
+    """Tests for the calculator app."""
+    import sys
+    sys.path.insert(0, '/workspace/src')
+    from app import add, subtract, multiply, divide
+
+    def test_add():
+        assert add(2, 3) == 5
+        assert add(-1, 1) == 0
+
+    def test_subtract():
+        assert subtract(10, 4) == 6
+
+    def test_multiply():
+        assert multiply(6, 7) == 42
+
+    def test_divide():
+        assert divide(15, 3) == 5.0
+        try:
+            divide(1, 0)
+            assert False, "Should have raised ValueError"
+        except ValueError:
+            pass
+
+    if __name__ == "__main__":
+        for name, func in list(globals().items()):
+            if name.startswith("test_"):
+                try:
+                    func()
+                    print(f"  PASS: {name}")
+                except AssertionError as e:
+                    print(f"  FAIL: {name} — {e}")
+                    sys.exit(1)
+        print("All tests passed!")
+    EOF
+  - |
+    cat > /workspace/README.md << 'EOF'
+    # Calculator Pipeline Challenge
+
+    Write a `pipeline.yml` from scratch with 4 stages:
+
+    1. **lint** — Syntax check src/app.py
+    2. **test** — Run tests/test_app.py
+    3. **build** — Create artifacts/app.tar.gz with version file
+    4. **deploy** — Copy artifact to /opt/deploy/
+
+    Use the pipeline runner: `/opt/lab/pipeline run /workspace/pipeline.yml`
+    EOF
+validation_steps:
+  - command: "test -f /workspace/pipeline.yml"
+    expected_exit: 0
+    hint: "Create a pipeline.yml file at /workspace/pipeline.yml"
+  - command: "grep -q 'stages:' /workspace/pipeline.yml"
+    expected_exit: 0
+    hint: "pipeline.yml must have a 'stages:' section listing the stage order."
+  - command: "grep -q 'lint' /workspace/pipeline.yml && grep -q 'test' /workspace/pipeline.yml && grep -q 'build' /workspace/pipeline.yml && grep -q 'deploy' /workspace/pipeline.yml"
+    expected_exit: 0
+    hint: "pipeline.yml must define all four stages: lint, test, build, deploy."
+  - command: "/opt/lab/pipeline run /workspace/pipeline.yml"
+    expected_exit: 0
+    hint: "The pipeline is still failing. Read the error output to see which stage fails and why."
+  - command: "test -f /workspace/artifacts/app.tar.gz"
+    expected_exit: 0
+    hint: "The build stage should create /workspace/artifacts/app.tar.gz"
+  - command: "test -f /opt/deploy/app.tar.gz"
+    expected_exit: 0
+    hint: "The deploy stage should copy the artifact to /opt/deploy/"
+instructions: |
+  ## Your mission: Write a complete CI/CD pipeline from scratch
+
+  You have a Python calculator app at `/workspace/src/app.py` with tests at
+  `/workspace/tests/test_app.py`. There is **no pipeline file yet** — you must
+  write one from scratch.
+
+  ### Pipeline format
+
+  The pipeline runner at `/opt/lab/pipeline` expects this YAML format:
+  ```yaml
+  stages:
+    - lint
+    - test
+    - build
+    - deploy
+
+  jobs:
+    lint:
+      script: |
+        echo "Running lint..."
+        # your lint commands here
+
+    test:
+      script: |
+        echo "Running tests..."
+        # your test commands here
+
+    build:
+      script: |
+        echo "Building..."
+        # your build commands here
+
+    deploy:
+      script: |
+        echo "Deploying..."
+        # your deploy commands here
+  ```
+
+  ### What each stage should do
+
+  **lint:** Syntax-check the Python source:
+  ```bash
+  python3 -m py_compile /workspace/src/app.py
+  ```
+
+  **test:** Run the test suite:
+  ```bash
+  python3 /workspace/tests/test_app.py
+  ```
+
+  **build:** Create a versioned artifact:
+  ```bash
+  mkdir -p /workspace/artifacts
+  echo "1.0.$(date +%s)" > /workspace/artifacts/version.txt
+  tar czf /workspace/artifacts/app.tar.gz -C /workspace/src .
+  ```
+
+  **deploy:** Copy the artifact to production:
+  ```bash
+  mkdir -p /opt/deploy
+  cp /workspace/artifacts/app.tar.gz /opt/deploy/
+  cp /workspace/artifacts/version.txt /opt/deploy/
+  echo "Deployed version: $(cat /opt/deploy/version.txt)"
+  ```
+
+  ### Steps
+
+  1. Create `/workspace/pipeline.yml` using the editor or nano
+  2. Run it: `/opt/lab/pipeline run /workspace/pipeline.yml`
+  3. Fix any errors until all stages pass
+  4. Click **Validate**
+
+  **Tip:** Use the IDE panel on the left to write your pipeline.yml file,
+  and the terminal on the right to run and test it.

@@ -1,0 +1,119 @@
+id: terraform_advanced_01_multi
+title: "Build multi-resource Docker infrastructure with Terraform"
+subject: terraform
+difficulty: advanced
+estimated_minutes: 45
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/terraform-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=tf_adv_01
+objectives:
+  - "Write a complete Terraform configuration from scratch"
+  - "Define a custom Docker network"
+  - "Create multiple containers with dependencies"
+  - "Use variables, locals, and outputs"
+  - "Successfully plan and apply the infrastructure"
+setup_commands:
+  - "mkdir -p /workspace"
+  - |
+    cat > /workspace/README.md << 'EOF'
+    # Multi-Resource Infrastructure Challenge
+
+    Write Terraform configs from scratch to create:
+    - 1 Docker network (app-network)
+    - 1 nginx container (frontend, port 8080:80)
+    - 2 app containers (app-1, app-2)
+    - 1 Docker volume (app-data)
+
+    Files to create:
+    - main.tf (provider + resources)
+    - variables.tf (input variables)
+    - outputs.tf (output values)
+    EOF
+validation_steps:
+  - command: "test -f /workspace/main.tf"
+    expected_exit: 0
+    hint: "Create a main.tf file at /workspace/main.tf"
+  - command: "test -f /workspace/variables.tf"
+    expected_exit: 0
+    hint: "Create a variables.tf file with input variable definitions."
+  - command: "test -f /workspace/outputs.tf"
+    expected_exit: 0
+    hint: "Create an outputs.tf file with output definitions."
+  - command: "cd /workspace && terraform validate"
+    expected_exit: 0
+    hint: "Terraform configuration has errors. Run 'terraform validate' to see them."
+  - command: "cd /workspace && terraform plan -out=plan.tfplan 2>&1 | grep -q 'Plan:'"
+    expected_exit: 0
+    hint: "terraform plan should succeed and show resources to create."
+  - command: "grep -q 'docker_network' /workspace/main.tf"
+    expected_exit: 0
+    hint: "main.tf should define a docker_network resource."
+  - command: "grep -c 'docker_container' /workspace/main.tf | xargs -I{} test {} -ge 2"
+    expected_exit: 0
+    hint: "main.tf should define at least 2 docker_container resources."
+instructions: |
+  ## Your mission: Build multi-resource infrastructure from scratch
+
+  Write a complete Terraform configuration that creates Docker infrastructure
+  with multiple interconnected resources. No starter code is provided —
+  write everything from scratch.
+
+  ### Required resources
+
+  1. **Docker provider** — configure the `kreuzwerker/docker` provider
+  2. **Docker network** — named "app-network"
+  3. **Docker image** — pull `nginx:alpine`
+  4. **Frontend container** — nginx on the app-network, port 8080→80
+  5. **App containers** — 2 containers (use `count` or define separately)
+  6. **Docker volume** — named "app-data"
+
+  ### Required files
+
+  **variables.tf** — Define at least:
+  ```hcl
+  variable "app_count" {
+    default = 2
+  }
+  variable "frontend_port" {
+    default = 8080
+  }
+  ```
+
+  **main.tf** — Provider, all resources:
+  ```hcl
+  terraform {
+    required_providers {
+      docker = {
+        source  = "kreuzwerker/docker"
+        version = "~> 3.0"
+      }
+    }
+  }
+
+  provider "docker" {}
+
+  # Define your resources here...
+  ```
+
+  **outputs.tf** — Output the network name and container names:
+  ```hcl
+  output "network_name" {
+    value = docker_network.app_network.name
+  }
+  ```
+
+  ### Steps
+
+  1. Initialize Terraform: `cd /workspace && terraform init`
+  2. Write your configuration files
+  3. Validate: `terraform validate`
+  4. Plan: `terraform plan`
+  5. Click **Validate** (you don't need to apply — plan is sufficient)
+
+  **Tip:** Use the IDE panel to write your .tf files and the terminal to run
+  Terraform commands.

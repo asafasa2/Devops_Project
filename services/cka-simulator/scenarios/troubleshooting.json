@@ -1,0 +1,134 @@
+{
+  "id": "troubleshooting",
+  "title": "Cluster Troubleshooting",
+  "description": "Diagnose and fix various cluster issues including pod failures, node problems, and networking issues",
+  "timeLimit": 35,
+  "difficulty": "hard",
+  "weight": 30,
+  "context": "The cluster has several issues that need to be identified and resolved. Use your troubleshooting skills to restore normal operation.",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Fix failing pod",
+      "description": "There's a pod named 'broken-app' in the 'production' namespace that's not starting. Identify and fix the issue.",
+      "points": 8,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pod broken-app -n production --no-headers | grep Running"
+        ],
+        "expectedOutputs": ["Running"]
+      },
+      "hints": [
+        "Use 'kubectl describe pod broken-app -n production' to see events",
+        "Check the pod's YAML configuration for errors",
+        "Common issues: wrong image name, missing secrets, resource constraints"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Resolve node NotReady status",
+      "description": "One of the worker nodes shows as 'NotReady'. Investigate and fix the issue.",
+      "points": 10,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get nodes --no-headers | grep NotReady | wc -l"
+        ],
+        "expectedOutputs": ["0"]
+      },
+      "hints": [
+        "Use 'kubectl describe node <node-name>' to see the issue",
+        "Check kubelet status with 'systemctl status kubelet'",
+        "Look at kubelet logs with 'journalctl -u kubelet'"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Fix DNS resolution",
+      "description": "Pods cannot resolve DNS names. Fix the CoreDNS issue.",
+      "points": 7,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pods -n kube-system -l k8s-app=kube-dns --no-headers | grep Running | wc -l"
+        ],
+        "expectedOutputs": ["1", "2"]
+      },
+      "hints": [
+        "Check CoreDNS pods in kube-system namespace",
+        "Look at CoreDNS logs for errors",
+        "Verify CoreDNS service and endpoints"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Check etcd health",
+      "description": "Verify that etcd cluster is healthy and accessible",
+      "points": 5,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pods -n kube-system -l component=etcd --no-headers | grep Running"
+        ],
+        "expectedOutputs": ["Running"]
+      },
+      "hints": [
+        "Check etcd pod status in kube-system namespace",
+        "Use etcdctl to check cluster health",
+        "Verify etcd certificates and configuration"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "name": "broken-pod",
+      "path": "/opt/course/troubleshooting/broken-app.yaml",
+      "content": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: broken-app\n  namespace: production\nspec:\n  containers:\n  - name: app\n    image: nginx:nonexistent-tag\n    resources:\n      requests:\n        memory: \"10Gi\"\n        cpu: \"8\""
+    },
+    {
+      "name": "debug-commands",
+      "path": "/opt/course/troubleshooting/debug-commands.txt",
+      "content": "# Useful debugging commands:\n# kubectl describe pod <pod-name> -n <namespace>\n# kubectl logs <pod-name> -n <namespace>\n# kubectl get events --sort-by=.metadata.creationTimestamp\n# systemctl status kubelet\n# journalctl -u kubelet\n# kubectl get nodes -o wide"
+    }
+  ],
+  "solution": [
+    "# Task 1: Fix failing pod",
+    "kubectl describe pod broken-app -n production",
+    "# Issue: Wrong image tag and excessive resource requests",
+    "",
+    "# Fix the pod:",
+    "kubectl delete pod broken-app -n production",
+    "cat <<EOF | kubectl apply -f -",
+    "apiVersion: v1",
+    "kind: Pod",
+    "metadata:",
+    "  name: broken-app",
+    "  namespace: production",
+    "spec:",
+    "  containers:",
+    "  - name: app",
+    "    image: nginx:1.20",
+    "    resources:",
+    "      requests:",
+    "        memory: \"128Mi\"",
+    "        cpu: \"100m\"",
+    "EOF",
+    "",
+    "# Task 2: Fix NotReady node",
+    "kubectl get nodes",
+    "kubectl describe node <notready-node>",
+    "# SSH to the node and restart kubelet:",
+    "# systemctl restart kubelet",
+    "",
+    "# Task 3: Fix DNS",
+    "kubectl get pods -n kube-system -l k8s-app=kube-dns",
+    "kubectl logs -n kube-system -l k8s-app=kube-dns",
+    "# Restart CoreDNS if needed:",
+    "kubectl rollout restart deployment/coredns -n kube-system",
+    "",
+    "# Task 4: Check etcd",
+    "kubectl get pods -n kube-system -l component=etcd",
+    "kubectl logs -n kube-system etcd-master"
+  ]
+}

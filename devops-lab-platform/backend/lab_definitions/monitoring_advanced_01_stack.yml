@@ -1,0 +1,196 @@
+id: monitoring_advanced_01_stack
+title: "Build a full observability stack from scratch"
+subject: monitoring
+difficulty: advanced
+estimated_minutes: 50
+editor_enabled: true
+editor_default_path: /etc/prometheus
+containers:
+  - name: lab-host
+    image: devops-lab/monitoring-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=mon_adv_01
+objectives:
+  - "Configure Prometheus to scrape a custom metrics exporter"
+  - "Write alerting rules for high error rates"
+  - "Configure Grafana datasource via API"
+  - "Verify the full monitoring pipeline works"
+setup_commands:
+  - "mkdir -p /workspace /etc/prometheus/rules"
+  - |
+    # Create a simple metrics exporter
+    cat > /workspace/exporter.py << 'PYEOF'
+    #!/usr/bin/env python3
+    """Simple Prometheus metrics exporter."""
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import random, time
+
+    START = time.time()
+
+    class MetricsHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            uptime = time.time() - START
+            errors = random.randint(0, 5)
+            requests = random.randint(50, 200)
+            body = f"""# HELP app_requests_total Total HTTP requests
+    # TYPE app_requests_total counter
+    app_requests_total {{status="200"}} {requests}
+    app_requests_total {{status="500"}} {errors}
+    # HELP app_uptime_seconds Application uptime
+    # TYPE app_uptime_seconds gauge
+    app_uptime_seconds {uptime:.1f}
+    # HELP app_active_connections Current active connections
+    # TYPE app_active_connections gauge
+    app_active_connections {random.randint(1, 50)}
+    """
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(body.encode())
+
+        def log_message(self, format, *args):
+            pass
+
+    HTTPServer(('0.0.0.0', 9100), MetricsHandler).serve_forever()
+    PYEOF
+    chmod +x /workspace/exporter.py
+  - |
+    # Start the exporter in background
+    python3 /workspace/exporter.py &
+    sleep 1
+  - |
+    # Write a minimal (broken) prometheus config — student must fix it
+    cat > /etc/prometheus/prometheus.yml << 'EOF'
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    # TODO: Add scrape_configs to scrape the app exporter on port 9100
+    # TODO: Add rule_files to load alerting rules
+    scrape_configs: []
+    EOF
+  - |
+    # Start prometheus with the config
+    prometheus --config.file=/etc/prometheus/prometheus.yml \
+      --storage.tsdb.path=/tmp/prometheus-data \
+      --web.listen-address=:9090 &
+    sleep 2
+  - |
+    # Start grafana
+    grafana-server --homepath=/usr/share/grafana \
+      --config=/etc/grafana/grafana.ini \
+      web &>/dev/null &
+    sleep 3
+validation_steps:
+  - command: "grep -q 'job_name' /etc/prometheus/prometheus.yml"
+    expected_exit: 0
+    hint: "Add a scrape_configs entry with a job_name targeting the exporter on port 9100."
+  - command: "curl -s http://localhost:9090/api/v1/targets | grep -q 'app-exporter\\|custom'"
+    expected_exit: 0
+    hint: "Prometheus should have a target scraping the app exporter. Check your scrape_configs."
+  - command: "test -f /etc/prometheus/rules/alerts.yml"
+    expected_exit: 0
+    hint: "Create an alerting rules file at /etc/prometheus/rules/alerts.yml"
+  - command: "curl -s http://localhost:9090/api/v1/rules | grep -q 'HighErrorRate\\|alerting'"
+    expected_exit: 0
+    hint: "Prometheus should have loaded your alerting rules. Check that rule_files is configured."
+  - command: "curl -s http://localhost:3000/api/datasources 2>/dev/null | grep -q 'prometheus\\|Prometheus'"
+    expected_exit: 0
+    hint: "Grafana should have a Prometheus datasource configured. Use the Grafana HTTP API to add it."
+instructions: |
+  ## Your mission: Build a full observability stack
+
+  A metrics exporter is running on port 9100, Prometheus is on 9090, and
+  Grafana is on 3000. But nothing is connected — you must wire it all together.
+
+  ### Step 1 — Check the exporter
+  ```
+  curl http://localhost:9100/metrics
+  ```
+  You should see `app_requests_total`, `app_uptime_seconds`, etc.
+
+  ### Step 2 — Configure Prometheus scraping
+
+  Edit `/etc/prometheus/prometheus.yml`:
+  ```yaml
+  scrape_configs:
+    - job_name: 'app-exporter'
+      static_configs:
+        - targets: ['localhost:9100']
+  ```
+
+  Reload Prometheus:
+  ```
+  kill -HUP $(pgrep prometheus)
+  ```
+
+  Verify:
+  ```
+  curl -s http://localhost:9090/api/v1/targets | python3 -m json.tool
+  ```
+
+  ### Step 3 — Write alerting rules
+
+  Create `/etc/prometheus/rules/alerts.yml`:
+  ```yaml
+  groups:
+    - name: app-alerts
+      rules:
+        - alert: HighErrorRate
+          expr: rate(app_requests_total{status="500"}[5m]) > 0.1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate detected"
+  ```
+
+  Add to prometheus.yml:
+  ```yaml
+  rule_files:
+    - 'rules/*.yml'
+  ```
+
+  Reload: `kill -HUP $(pgrep prometheus)`
+
+  Verify rules loaded:
+  ```
+  curl -s http://localhost:9090/api/v1/rules | python3 -m json.tool
+  ```
+
+  ### Step 4 — Configure Grafana datasource
+
+  Use the Grafana API (default credentials admin:admin):
+  ```
+  curl -X POST http://admin:admin@localhost:3000/api/datasources \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "name": "Prometheus",
+      "type": "prometheus",
+      "url": "http://localhost:9090",
+      "access": "proxy",
+      "isDefault": true
+    }'
+  ```
+
+  Verify:
+  ```
+  curl -s http://admin:admin@localhost:3000/api/datasources
+  ```
+
+  ### Step 5 — Verify everything
+
+  Check the complete pipeline:
+  ```
+  # Exporter serves metrics
+  curl -s http://localhost:9100/metrics | head -5
+
+  # Prometheus scrapes them
+  curl -s 'http://localhost:9090/api/v1/query?query=app_uptime_seconds'
+
+  # Grafana has the datasource
+  curl -s http://admin:admin@localhost:3000/api/datasources | python3 -m json.tool
+  ```
+
+  Once everything is connected, click **Validate**.

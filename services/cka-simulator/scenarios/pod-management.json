@@ -1,0 +1,122 @@
+{
+  "id": "pod-management",
+  "title": "Pod Creation and Management",
+  "description": "Create and manage pods with various configurations including resource limits and environment variables",
+  "timeLimit": 20,
+  "difficulty": "easy",
+  "weight": 13,
+  "context": "You need to create and manage pods with specific configurations for a production environment.",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Create a basic pod",
+      "description": "Create a pod named 'web-server' using nginx:1.20 image in the default namespace",
+      "points": 3,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pod web-server --no-headers | grep Running"
+        ],
+        "expectedOutputs": ["Running"]
+      },
+      "hints": [
+        "Use 'kubectl run' command or create a YAML manifest",
+        "Specify the image as nginx:1.20",
+        "Make sure the pod name is exactly 'web-server'"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Add resource limits",
+      "description": "Modify the pod to include resource limits: CPU 100m, Memory 128Mi",
+      "points": 4,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pod web-server -o jsonpath='{.spec.containers[0].resources.limits.cpu}'",
+          "kubectl get pod web-server -o jsonpath='{.spec.containers[0].resources.limits.memory}'"
+        ],
+        "expectedOutputs": ["100m", "128Mi"]
+      },
+      "hints": [
+        "Edit the pod YAML to add resources.limits section",
+        "Use 'kubectl edit pod web-server' or apply a new manifest",
+        "CPU should be '100m' and memory should be '128Mi'"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Add environment variable",
+      "description": "Add environment variable APP_ENV=production to the pod",
+      "points": 3,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pod web-server -o jsonpath='{.spec.containers[0].env[?(@.name==\"APP_ENV\")].value}'"
+        ],
+        "expectedOutputs": ["production"]
+      },
+      "hints": [
+        "Add env section to the container specification",
+        "Environment variable name should be 'APP_ENV'",
+        "Environment variable value should be 'production'"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Verify pod logs",
+      "description": "Check that the pod is running correctly and nginx is serving requests",
+      "points": 3,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl logs web-server | grep 'start worker process'"
+        ],
+        "expectedOutputs": ["start worker process"]
+      },
+      "hints": [
+        "Use 'kubectl logs web-server' to check pod logs",
+        "Nginx should show worker processes starting",
+        "If no logs appear, the pod might not be running correctly"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "name": "pod-template",
+      "path": "/opt/course/pod-management/pod-template.yaml",
+      "content": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: web-server\nspec:\n  containers:\n  - name: nginx\n    image: nginx:1.20\n    # Add your resource limits and environment variables here"
+    }
+  ],
+  "solution": [
+    "# Method 1: Using kubectl run (then edit)",
+    "kubectl run web-server --image=nginx:1.20 --dry-run=client -o yaml > web-server.yaml",
+    "",
+    "# Edit the YAML file to add:",
+    "cat <<EOF > web-server.yaml",
+    "apiVersion: v1",
+    "kind: Pod",
+    "metadata:",
+    "  name: web-server",
+    "spec:",
+    "  containers:",
+    "  - name: nginx",
+    "    image: nginx:1.20",
+    "    resources:",
+    "      limits:",
+    "        cpu: 100m",
+    "        memory: 128Mi",
+    "    env:",
+    "    - name: APP_ENV",
+    "      value: production",
+    "EOF",
+    "",
+    "# Apply the pod",
+    "kubectl apply -f web-server.yaml",
+    "",
+    "# Verify the pod",
+    "kubectl get pod web-server",
+    "kubectl describe pod web-server",
+    "kubectl logs web-server"
+  ]
+}

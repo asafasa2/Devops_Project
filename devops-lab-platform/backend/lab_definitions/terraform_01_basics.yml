@@ -1,0 +1,122 @@
+id: terraform_01_basics
+title: "Write your first Terraform configuration"
+subject: terraform
+difficulty: beginner
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/terraform-lab:latest
+    privileged: false
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LAB_ID=terraform_01
+objectives:
+  - "Understand the structure of a Terraform configuration file"
+  - "Declare a required_providers block for the Docker provider"
+  - "Define a docker_image resource for nginx:alpine"
+  - "Define a docker_container resource that references the image"
+  - "Run terraform init && terraform validate successfully"
+setup_commands:
+  - "mkdir -p /workspace"
+  - |
+    cat > /workspace/main.tf << 'EOF'
+    # BROKEN: wrong provider block and missing arguments — fix this file
+
+    terraform {
+      required_providers {
+        docker = {
+          source = "kreuzwerker/docker"
+        }
+      }
+    }
+
+    provider "docker" {}
+
+    # BUG 1: resource type is wrong (should be "docker_image")
+    resource "docker_imagee" "nginx" {
+      name = "nginx:alpine"
+    }
+
+    # BUG 2: missing required argument "image" — should reference docker_image.nginx.image_id
+    resource "docker_container" "nginx" {
+      name = "lab-nginx"
+    }
+    EOF
+  - "cd /workspace && terraform init -input=false > /tmp/tf_init.log 2>&1 || true"
+validation_steps:
+  - command: "terraform -chdir=/workspace validate"
+    expected_exit: 0
+    hint: "Run 'terraform validate' to see errors. Check the resource type names and required arguments."
+  - command: "terraform -chdir=/workspace plan -input=false"
+    expected_exit: 0
+    hint: "terraform plan should succeed (exit 0) once the configuration is valid. Make sure docker_container references the docker_image resource."
+instructions: |
+  ## Your mission: Write a valid Terraform configuration
+
+  The file `/workspace/main.tf` has two deliberate bugs. Fix them so that
+  `terraform validate` and `terraform plan` both succeed.
+
+  ### Background
+
+  Terraform configurations are written in HCL (HashiCorp Configuration Language).
+  Every resource has the form:
+
+  ```hcl
+  resource "<TYPE>" "<NAME>" {
+    argument = value
+  }
+  ```
+
+  ### The Docker provider
+
+  This lab uses the **kreuzwerker/docker** provider to manage local Docker containers —
+  no cloud required.
+
+  ```hcl
+  terraform {
+    required_providers {
+      docker = {
+        source  = "kreuzwerker/docker"
+        version = "~> 3.0"
+      }
+    }
+  }
+  ```
+
+  ### Resources you need
+
+  **docker_image** — pulls an image:
+  ```hcl
+  resource "docker_image" "nginx" {
+    name = "nginx:alpine"
+  }
+  ```
+
+  **docker_container** — runs a container (must reference the image):
+  ```hcl
+  resource "docker_container" "nginx" {
+    name  = "lab-nginx"
+    image = docker_image.nginx.image_id
+  }
+  ```
+
+  ### Workflow
+
+  ```bash
+  cd /workspace
+  terraform init      # download the docker provider
+  terraform validate  # check for syntax/type errors
+  terraform plan      # preview what will be created
+  ```
+
+  ### Fix the bugs
+
+  1. Open `/workspace/main.tf` with `nano` or `vim`
+  2. Correct the resource type on the `docker_imagee` block
+  3. Add the required `image` argument to `docker_container`
+  4. Run `terraform validate` until it reports "Success"
+
+  Click **Validate** when both `terraform validate` and `terraform plan` exit 0.

@@ -1,0 +1,89 @@
+id: networking_03_dns
+title: "Fix DNS resolution"
+subject: networking
+difficulty: beginner
+estimated_minutes: 20
+containers:
+  - name: lab-host
+    image: devops-lab/networking-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=networking_03
+objectives:
+  - "Identify why DNS resolution is failing"
+  - "Inspect /etc/resolv.conf for the broken nameserver"
+  - "Replace the broken nameserver with 8.8.8.8"
+  - "Test resolution with dig and nslookup"
+  - "Add a custom /etc/hosts entry"
+setup_commands:
+  - "echo 'nameserver 127.0.0.99' > /etc/resolv.conf"
+  - "echo 'nameserver 192.168.255.255' >> /etc/resolv.conf"
+validation_steps:
+  - command: "grep -q '8.8.8.8' /etc/resolv.conf"
+    expected_exit: 0
+    hint: "8.8.8.8 is not in /etc/resolv.conf. Edit the file and replace the broken nameservers."
+  - command: "dig +short +timeout=5 google.com @8.8.8.8 | grep -qE '^[0-9]'"
+    expected_exit: 0
+    hint: "dig cannot resolve google.com via 8.8.8.8. Check network connectivity and resolv.conf."
+  - command: "grep -q 'myapp.local' /etc/hosts"
+    expected_exit: 0
+    hint: "No myapp.local entry in /etc/hosts. Add: '127.0.0.1 myapp.local' to /etc/hosts"
+instructions: |
+  ## Your mission: Restore DNS resolution
+
+  The nameservers in `/etc/resolv.conf` are broken. DNS queries are timing out.
+
+  ### Step 1 — Confirm DNS is broken
+  ```
+  dig google.com
+  # or
+  nslookup google.com
+  ```
+
+  You should see a timeout or SERVFAIL.
+
+  ### Step 2 — Inspect /etc/resolv.conf
+  ```
+  cat /etc/resolv.conf
+  ```
+
+  The file contains broken nameserver IPs. The format is:
+  ```
+  nameserver <IP>
+  nameserver <IP>
+  ```
+
+  ### Step 3 — Fix resolv.conf
+  ```
+  nano /etc/resolv.conf
+  ```
+
+  Replace the broken entries with:
+  ```
+  nameserver 8.8.8.8
+  nameserver 1.1.1.1
+  ```
+
+  ### Step 4 — Test resolution
+  ```
+  dig +short google.com
+  nslookup github.com
+  dig +short google.com @8.8.8.8    # query a specific nameserver directly
+  ```
+
+  ### Step 5 — Add a custom hosts entry
+
+  `/etc/hosts` is checked before DNS. Add a local override:
+  ```
+  echo '127.0.0.1 myapp.local' >> /etc/hosts
+  ping -c1 myapp.local
+  ```
+
+  Once both `dig google.com` works and `myapp.local` is in `/etc/hosts`, click **Validate**.
+
+  ---
+
+  **DNS resolution order on Linux:**
+  1. `/etc/hosts` (local override — fastest)
+  2. `/etc/resolv.conf` nameservers (DNS query)
+  3. mDNS (`.local` domains, if avahi is running)

@@ -1,0 +1,86 @@
+id: linux_04_processes
+title: "Tame runaway processes"
+subject: linux
+difficulty: beginner
+estimated_minutes: 20
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_04
+objectives:
+  - "Find the rogue_worker process using ps or pgrep"
+  - "Kill it with kill or pkill"
+  - "Renice the slow_worker process to priority 15"
+setup_commands:
+  - "bash -c 'while true; do :; done' &"
+  - "sleep 999999 &"
+  - "echo $! > /tmp/slow_worker.pid"
+  - "bash -c 'while true; do :; done' &"
+  - "ps aux --no-header | awk '{print $2}' | tail -2 | head -1 > /tmp/rogue_worker.pid"
+  - "cat /proc/$(cat /tmp/rogue_worker.pid)/cmdline 2>/dev/null || true"
+  - "ln -sf /proc/$(cat /tmp/rogue_worker.pid)/exe /usr/local/bin/rogue_worker 2>/dev/null || true"
+  - |
+    bash -c '
+    PID=$(cat /tmp/rogue_worker.pid 2>/dev/null)
+    [ -n "$PID" ] && [ -d /proc/$PID ] && cat /proc/$PID/status | grep -q bash || true
+    '
+validation_steps:
+  - command: "! pgrep -x rogue_worker > /dev/null 2>&1; test $? -eq 0 || ! ps aux | grep -v grep | grep -q 'rogue_worker'"
+    expected_exit: 0
+    hint: "rogue_worker is still running. Use 'ps aux | grep bash' to find it, then kill it by PID."
+  - command: "ps -o pid,ni -p $(cat /tmp/slow_worker.pid 2>/dev/null || echo 1) 2>/dev/null | awk 'NR==2{exit ($2 >= 10 ? 0 : 1)}'"
+    expected_exit: 0
+    hint: "slow_worker's nice value is not high enough. Use: renice -n 15 -p $(cat /tmp/slow_worker.pid)"
+instructions: |
+  ## Your mission: Kill a runaway process and renice another
+
+  Two background processes were started when the lab launched.
+
+  ---
+
+  ### Task 1 — Find and kill rogue_worker
+
+  A CPU-burning bash loop is running. Find it and kill it.
+
+  ```
+  # List all processes
+  ps aux
+
+  # Or search by name
+  pgrep -a bash
+
+  # Look for high CPU usage
+  top
+  ```
+
+  The PID of the rogue process is in `/tmp/rogue_worker.pid`:
+  ```
+  cat /tmp/rogue_worker.pid
+  kill <PID>
+  ```
+
+  Confirm it is gone:
+  ```
+  ps aux | grep bash
+  ```
+
+  ---
+
+  ### Task 2 — Lower the priority of slow_worker
+
+  `slow_worker` is a long-running sleep process. Lower its scheduling priority
+  (raise its nice value) to 15 so it gets less CPU time.
+
+  ```
+  cat /tmp/slow_worker.pid     # get the PID
+  renice -n 15 -p <PID>
+  ps -o pid,ni -p <PID>        # verify nice = 15
+  ```
+
+  Nice values range from -20 (highest priority) to 19 (lowest). Default is 0.
+
+  ---
+
+  Once both tasks are done, click **Validate**.

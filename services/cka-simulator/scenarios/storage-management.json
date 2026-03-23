@@ -1,0 +1,156 @@
+{
+  "id": "storage-management",
+  "title": "Storage and Persistent Volumes",
+  "description": "Configure persistent storage solutions including PVs, PVCs, and StatefulSets",
+  "timeLimit": 25,
+  "difficulty": "medium",
+  "weight": 20,
+  "context": "You need to set up persistent storage for applications that require data persistence across pod restarts.",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Create PersistentVolume",
+      "description": "Create a PersistentVolume named 'app-pv' with 2Gi capacity, ReadWriteOnce access mode, and hostPath /opt/data",
+      "points": 5,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pv app-pv --no-headers | grep Available"
+        ],
+        "expectedOutputs": ["Available"]
+      },
+      "hints": [
+        "Use hostPath storage class for local development",
+        "Set capacity to 2Gi and accessModes to ReadWriteOnce",
+        "Don't specify a storageClassName"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Create PersistentVolumeClaim",
+      "description": "Create a PVC named 'app-pvc' in namespace 'storage-test' that requests 1Gi storage with ReadWriteOnce access",
+      "points": 4,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pvc app-pvc -n storage-test --no-headers | grep Bound"
+        ],
+        "expectedOutputs": ["Bound"]
+      },
+      "hints": [
+        "Create the namespace first if it doesn't exist",
+        "Request 1Gi storage (less than PV capacity)",
+        "Don't specify storageClassName to bind to the PV"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Create pod with volume mount",
+      "description": "Create a pod named 'storage-pod' that uses the PVC and mounts it at /data",
+      "points": 6,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl get pod storage-pod -n storage-test --no-headers | grep Running"
+        ],
+        "expectedOutputs": ["Running"]
+      },
+      "hints": [
+        "Use volumes and volumeMounts in the pod spec",
+        "Mount the PVC at /data inside the container",
+        "Use a simple image like busybox or nginx"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Test data persistence",
+      "description": "Write data to the mounted volume and verify it persists after pod restart",
+      "points": 5,
+      "validation": {
+        "type": "command",
+        "commands": [
+          "kubectl exec storage-pod -n storage-test -- ls /data/test-file.txt"
+        ],
+        "expectedOutputs": ["/data/test-file.txt"]
+      },
+      "hints": [
+        "Use 'kubectl exec' to write a file to /data",
+        "Delete and recreate the pod",
+        "Verify the file still exists"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "name": "pv-template",
+      "path": "/opt/course/storage/pv-template.yaml",
+      "content": "apiVersion: v1\nkind: PersistentVolume\nmetadata:\n  name: app-pv\nspec:\n  capacity:\n    storage: 2Gi\n  accessModes:\n    - ReadWriteOnce\n  hostPath:\n    path: /opt/data"
+    },
+    {
+      "name": "pvc-template",
+      "path": "/opt/course/storage/pvc-template.yaml",
+      "content": "apiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: app-pvc\n  namespace: storage-test\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 1Gi"
+    }
+  ],
+  "solution": [
+    "# Step 1: Create namespace",
+    "kubectl create namespace storage-test",
+    "",
+    "# Step 2: Create PersistentVolume",
+    "cat <<EOF | kubectl apply -f -",
+    "apiVersion: v1",
+    "kind: PersistentVolume",
+    "metadata:",
+    "  name: app-pv",
+    "spec:",
+    "  capacity:",
+    "    storage: 2Gi",
+    "  accessModes:",
+    "    - ReadWriteOnce",
+    "  hostPath:",
+    "    path: /opt/data",
+    "EOF",
+    "",
+    "# Step 3: Create PersistentVolumeClaim",
+    "cat <<EOF | kubectl apply -f -",
+    "apiVersion: v1",
+    "kind: PersistentVolumeClaim",
+    "metadata:",
+    "  name: app-pvc",
+    "  namespace: storage-test",
+    "spec:",
+    "  accessModes:",
+    "    - ReadWriteOnce",
+    "  resources:",
+    "    requests:",
+    "      storage: 1Gi",
+    "EOF",
+    "",
+    "# Step 4: Create pod with volume mount",
+    "cat <<EOF | kubectl apply -f -",
+    "apiVersion: v1",
+    "kind: Pod",
+    "metadata:",
+    "  name: storage-pod",
+    "  namespace: storage-test",
+    "spec:",
+    "  containers:",
+    "  - name: app",
+    "    image: busybox",
+    "    command: ['sleep', '3600']",
+    "    volumeMounts:",
+    "    - name: storage",
+    "      mountPath: /data",
+    "  volumes:",
+    "  - name: storage",
+    "    persistentVolumeClaim:",
+    "      claimName: app-pvc",
+    "EOF",
+    "",
+    "# Step 5: Test persistence",
+    "kubectl exec storage-pod -n storage-test -- sh -c 'echo \"test data\" > /data/test-file.txt'",
+    "kubectl delete pod storage-pod -n storage-test",
+    "kubectl apply -f storage-pod.yaml",
+    "kubectl exec storage-pod -n storage-test -- cat /data/test-file.txt"
+  ]
+}

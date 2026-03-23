@@ -1,0 +1,138 @@
+id: monitoring_03_grafana
+title: "Connect Grafana to Prometheus and explore metrics"
+subject: monitoring
+difficulty: intermediate
+estimated_minutes: 30
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/monitoring-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=monitoring_03
+objectives:
+  - "Understand Grafana datasource provisioning via YAML files"
+  - "Fix the broken Prometheus datasource URL"
+  - "Reload Grafana and verify the datasource is healthy via the API"
+  - "Use the Grafana HTTP API to create a simple dashboard"
+setup_commands:
+  - "systemctl start prometheus-node-exporter || true"
+  - "systemctl start prometheus || true"
+  - "sleep 2"
+  - |
+    cat > /etc/grafana/provisioning/datasources/prometheus.yaml << 'EOF'
+    apiVersion: 1
+
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://localhost:9999    # BUG: wrong port — Prometheus runs on 9090
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: "15s"
+    EOF
+  - "systemctl start grafana-server || true"
+  - "sleep 5"
+validation_steps:
+  - command: "grep -q 'localhost:9090' /etc/grafana/provisioning/datasources/prometheus.yaml"
+    expected_exit: 0
+    hint: "Fix the 'url:' in /etc/grafana/provisioning/datasources/prometheus.yaml — Prometheus runs on port 9090, not 9999."
+  - command: "systemctl is-active grafana-server"
+    expected_exit: 0
+    hint: "Restart Grafana after editing the provisioning file: systemctl restart grafana-server"
+  - command: "curl -sf -u admin:admin http://localhost:3000/api/datasources | jq -e '[.[] | select(.type==\"prometheus\")] | length > 0'"
+    expected_exit: 0
+    hint: "Grafana API should return a Prometheus datasource. Make sure grafana-server is running and the provisioning file has been reloaded."
+instructions: |
+  ## Your mission: Fix the Grafana datasource and explore the API
+
+  Grafana is running but its Prometheus datasource points to the wrong port.
+  Fix the provisioning file, reload Grafana, then explore metrics using the HTTP API.
+
+  ### Grafana datasource provisioning
+
+  Grafana can be configured via YAML files in `/etc/grafana/provisioning/datasources/`.
+  This is the infrastructure-as-code approach — no clicking through the UI required.
+
+  ```yaml
+  apiVersion: 1
+  datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://localhost:9090    # must match where Prometheus listens
+      isDefault: true
+  ```
+
+  ### Fix the bug
+
+  Open `/etc/grafana/provisioning/datasources/prometheus.yaml`:
+
+  ```bash
+  nano /etc/grafana/provisioning/datasources/prometheus.yaml
+  ```
+
+  Change port `9999` → `9090` in the `url:` line.
+
+  ### Reload Grafana
+
+  ```bash
+  systemctl restart grafana-server
+  sleep 3
+  systemctl status grafana-server
+  ```
+
+  ### Verify the datasource via the API
+
+  Grafana exposes a full HTTP API. Default credentials are `admin:admin`.
+
+  ```bash
+  # List all configured datasources
+  curl -s -u admin:admin http://localhost:3000/api/datasources | jq '.[].name'
+
+  # Check if the Prometheus datasource is healthy
+  curl -s -u admin:admin http://localhost:3000/api/datasources/name/Prometheus | jq '{name: .name, url: .url, type: .type}'
+  ```
+
+  ### Query Prometheus through Grafana
+
+  Once the datasource is connected, you can run PromQL queries via the Grafana proxy:
+
+  ```bash
+  # Query through Grafana (it proxies to Prometheus)
+  curl -s -u admin:admin \
+    'http://localhost:3000/api/datasources/proxy/1/api/v1/query?query=up' | jq '.data.result[] | {job: .metric.job, up: .value[1]}'
+  ```
+
+  ### Create a dashboard via the API
+
+  Dashboards can also be provisioned via API:
+
+  ```bash
+  curl -s -u admin:admin \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "dashboard": {
+        "title": "Lab Overview",
+        "panels": [],
+        "schemaVersion": 36,
+        "version": 0
+      },
+      "folderId": 0,
+      "overwrite": false
+    }' \
+    http://localhost:3000/api/dashboards/db | jq '{status: .status, url: .url}'
+  ```
+
+  ### Port reference
+
+  | Service             | Port |
+  |---------------------|------|
+  | Prometheus          | 9090 |
+  | node_exporter       | 9100 |
+  | Grafana             | 3000 |
+
+  Click **Validate** once the datasource URL is fixed, Grafana is running, and the API returns the datasource.

@@ -286,3 +286,65 @@ health-check: ## Run health checks on deployed services
 
 verify-deployment: ## Verify deployment status
 	@./scripts/verify-deployment.sh $(ENV)
+
+# ── DevOps Lab Platform ───────────────────────────────────────────────────────
+lab-build: ## Build devops-lab/base-linux:latest image (Phase 1/2 — Linux labs)
+	@echo "$(BLUE)[INFO]$(NC) Building devops-lab/base-linux:latest..."
+	@docker build -t devops-lab/base-linux:latest devops-lab-platform/lab-images/base-linux/
+	@echo "$(GREEN)[SUCCESS]$(NC) Image built: devops-lab/base-linux:latest"
+
+networking-build: ## Build devops-lab/networking-lab:latest image (Phase 3 — Networking labs)
+	@echo "$(BLUE)[INFO]$(NC) Building devops-lab/networking-lab:latest..."
+	@docker build -t devops-lab/networking-lab:latest devops-lab-platform/lab-images/networking-lab/
+	@echo "$(GREEN)[SUCCESS]$(NC) Image built: devops-lab/networking-lab:latest"
+
+cicd-build: ## Build devops-lab/cicd-lab:latest image (Phase 4 — CI/CD labs)
+	@echo "$(BLUE)[INFO]$(NC) Building devops-lab/cicd-lab:latest..."
+	@docker build -t devops-lab/cicd-lab:latest devops-lab-platform/lab-images/cicd-lab/
+	@echo "$(GREEN)[SUCCESS]$(NC) Image built: devops-lab/cicd-lab:latest"
+
+monitoring-build: ## Build devops-lab/monitoring-lab:latest image (Phase 6 — Monitoring labs)
+	@echo "$(BLUE)[INFO]$(NC) Building devops-lab/monitoring-lab:latest..."
+	@docker build -t devops-lab/monitoring-lab:latest devops-lab-platform/lab-images/monitoring-lab/
+	@echo "$(GREEN)[SUCCESS]$(NC) Image built: devops-lab/monitoring-lab:latest"
+
+security-build: ## Build devops-lab/security-lab:latest image (Phase 7 — Security labs)
+	@echo "$(BLUE)[INFO]$(NC) Building devops-lab/security-lab:latest..."
+	@docker build -t devops-lab/security-lab:latest devops-lab-platform/lab-images/security-lab/
+	@echo "$(GREEN)[SUCCESS]$(NC) Image built: devops-lab/security-lab:latest"
+
+lab-build-all: lab-build networking-build cicd-build terraform-build ansible-build monitoring-build security-build ## Build all lab images
+
+lab-backend: ## Run FastAPI backend on host (port 8000)
+	@echo "$(BLUE)[INFO]$(NC) Starting FastAPI backend on http://localhost:8000"
+	@cd devops-lab-platform && pip install -q -r backend/requirements.txt
+	@cd devops-lab-platform && uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+lab-frontend: ## Run Vite dev server (port 3000)
+	@echo "$(BLUE)[INFO]$(NC) Starting Vite dev server on http://localhost:3000"
+	@cd services/frontend && npm install && npm run dev
+
+lab-install-ttyd: ## Install ttyd (macOS: brew, Linux: download binary)
+	@echo "$(BLUE)[INFO]$(NC) Installing ttyd..."
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		brew install ttyd; \
+	else \
+		curl -L https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64 -o /usr/local/bin/ttyd && chmod +x /usr/local/bin/ttyd; \
+	fi
+	@echo "$(GREEN)[SUCCESS]$(NC) ttyd installed: $$(ttyd --version 2>&1 || echo 'check path')"
+
+lab-clean: ## Remove all devops-lab-* containers, images, and networks
+	@echo "$(YELLOW)[WARNING]$(NC) Removing all devops-lab containers and networks..."
+	@docker ps -a --filter "label=devops-lab.managed=true" -q | xargs -r docker rm -f
+	@docker network ls --filter "name=devops-lab-net-" -q | xargs -r docker network rm
+	@echo "$(GREEN)[SUCCESS]$(NC) Lab resources cleaned"
+
+terraform-build: ## Build devops-lab/terraform-lab:latest image (Phase 5 — Terraform labs)
+	@echo "$(BLUE)[INFO]$(NC) Building devops-lab/terraform-lab:latest..."
+	@docker build -t devops-lab/terraform-lab:latest devops-lab-platform/lab-images/terraform-lab/
+	@echo "$(GREEN)[SUCCESS]$(NC) Image built: devops-lab/terraform-lab:latest"
+
+ansible-build: ## Build devops-lab/ansible-lab:latest image (Phase 5 — Ansible labs)
+	@echo "$(BLUE)[INFO]$(NC) Building devops-lab/ansible-lab:latest..."
+	@docker build -t devops-lab/ansible-lab:latest devops-lab-platform/lab-images/ansible-lab/
+	@echo "$(GREEN)[SUCCESS]$(NC) Image built: devops-lab/ansible-lab:latest"

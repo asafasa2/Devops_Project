@@ -89,7 +89,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4000/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -137,7 +137,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4001/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4001/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -183,7 +183,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4002/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4002/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -229,7 +229,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4004/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4004/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -290,10 +290,65 @@ services:
           memory: 256m
           cpus: '0.5'
 
+  # CKA Simulator Service
+  cka-simulator:
+    build:
+      context: ./services/cka-simulator
+      dockerfile: Dockerfile
+    container_name: ${ENVIRONMENT:-dev}-cka-simulator
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: devops_practice
+      DB_USER: devops_user
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_2024}
+      PORT: 4005
+      DOCKER_HOST: unix:///var/run/docker.sock
+      SESSION_TIMEOUT: 7200
+      MAX_CONCURRENT_SESSIONS: 10
+      CKA_IMAGE_NAME: cka-ubuntu:latest
+    ports:
+      - "${CKA_SIMULATOR_PORT:-4005}:4005"
+    volumes:
+      - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - cka_sessions:/app/sessions
+      - ./services/cka-simulator/scenarios:/app/scenarios:ro
+    networks:
+      - app-network
+      - db-network
+      - cka-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4005/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: ${CKA_SIMULATOR_MEMORY_LIMIT:-2g}
+          cpus: ${CKA_SIMULATOR_CPU_LIMIT:-2.0}
+        reservations:
+          memory: 512m
+          cpus: '0.5'
+
   frontend:
     build:
-      context: ./services/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/frontend/Dockerfile
     container_name: ${ENVIRONMENT:-dev}-frontend
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -310,7 +365,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -344,7 +399,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -637,6 +692,14 @@ networks:
         - subnet: 172.27.0.0/16
     driver_opts:
       com.docker.network.bridge.name: ${ENVIRONMENT:-dev}-mon-br
+  cka-network:
+    name: ${ENVIRONMENT:-dev}-cka-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: ${ENVIRONMENT:-dev}-cka-br
 
 volumes:
   postgres_data:
@@ -688,3 +751,10 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH:-./data}/lab-workspaces
+  cka_sessions:
+    name: ${ENVIRONMENT:-dev}-cka-sessions
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/cka-sessions

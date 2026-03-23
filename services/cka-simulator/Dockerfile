@@ -10,7 +10,7 @@ RUN apk add --no-cache docker-cli curl
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --production
 
 # Copy source code
 COPY src/ ./src/

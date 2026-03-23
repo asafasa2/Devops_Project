@@ -1,0 +1,118 @@
+id: cicd_01_pipeline_stages
+title: "Fix a broken CI pipeline"
+subject: cicd
+difficulty: beginner
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/cicd-lab:latest
+    privileged: false
+    environment:
+      - LAB_ID=cicd_01
+objectives:
+  - "Understand CI pipeline structure: stages, jobs, scripts"
+  - "Fix the stage ordering (lint must run before test)"
+  - "Add missing script blocks to incomplete stages"
+  - "Run the pipeline successfully with /opt/lab/pipeline run /workspace/pipeline.yml"
+setup_commands:
+  - "mkdir -p /workspace"
+  - |
+    cat > /workspace/pipeline.yml << 'EOF'
+    stages:
+      - build
+      - lint
+      - test
+      - deploy
+
+    jobs:
+      lint:
+        script: |
+          echo "Running linter..."
+          if [ -f /workspace/src/app.py ]; then
+            python3 -m py_compile /workspace/src/app.py && echo "Lint passed"
+          else
+            echo "No source files found"
+          fi
+
+      test:
+        script: |
+          echo "Running tests..."
+          echo "All tests passed"
+
+      build:
+        script: |
+          echo "Building artifact..."
+          mkdir -p /workspace/artifacts
+          echo "v1.0.0-$(date +%s)" > /workspace/artifacts/version.txt
+          tar czf /workspace/artifacts/app.tar.gz -C /workspace/src . 2>/dev/null || echo "Nothing to tar"
+          echo "Build complete"
+
+      deploy:
+        script: |
+          if [ ! -f /workspace/artifacts/app.tar.gz ]; then
+            echo "ERROR: No artifact to deploy!"
+            exit 1
+          fi
+          echo "Deploying to production..."
+          echo "Deploy complete"
+    EOF
+  - "mkdir -p /workspace/src && echo 'print(\"hello\")' > /workspace/src/app.py"
+validation_steps:
+  - command: "grep -A6 'stages:' /workspace/pipeline.yml | grep -n 'lint' | head -1 | awk -F: '{print $1}' | xargs -I{} test {} -lt 3"
+    expected_exit: 0
+    hint: "lint must appear before test in the stages list. Edit pipeline.yml and reorder: lint → test → build → deploy."
+  - command: "/opt/lab/pipeline run /workspace/pipeline.yml"
+    expected_exit: 0
+    hint: "Pipeline failed. Check the stage order — lint must come before test, and build must come before deploy."
+instructions: |
+  ## Your mission: Fix the broken pipeline
+
+  The pipeline.yml has stages in the wrong order. In a real CI/CD system:
+  - **lint** must catch errors before you run tests
+  - **test** validates the code before building
+  - **build** produces the artifact before deploying
+  - **deploy** runs last
+
+  Current broken order: `build → lint → test → deploy`
+
+  ### Step 1 — Read the pipeline
+  ```
+  cat /workspace/pipeline.yml
+  ```
+
+  ### Step 2 — Understand the structure
+  ```
+  stages:          ← defines order of execution
+    - lint
+    - test
+    - build
+    - deploy
+
+  jobs:            ← defines what each stage does
+    lint:
+      script: |
+        echo "lint commands here"
+  ```
+
+  ### Step 3 — Fix the stage order
+  ```
+  nano /workspace/pipeline.yml
+  ```
+
+  Change the `stages:` list to:
+  ```
+  stages:
+    - lint
+    - test
+    - build
+    - deploy
+  ```
+
+  ### Step 4 — Run the pipeline
+  ```
+  /opt/lab/pipeline run /workspace/pipeline.yml
+  ```
+
+  Once it prints `Pipeline SUCCEEDED`, click **Validate**.

@@ -1,0 +1,164 @@
+id: linux_advanced_01_multiservice
+title: "Debug a cascading multi-service failure"
+subject: linux
+difficulty: advanced
+estimated_minutes: 40
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_adv_01
+objectives:
+  - "Identify that nginx returns 502 Bad Gateway"
+  - "Trace the failure back to the Flask app being down"
+  - "Discover PostgreSQL is rejecting connections due to broken pg_hba.conf"
+  - "Fix pg_hba.conf, restart PostgreSQL, then Flask, then verify nginx"
+setup_commands:
+  - "apt-get update -qq && apt-get install -y -qq python3 python3-pip postgresql postgresql-client > /dev/null 2>&1"
+  - "pip3 install flask > /dev/null 2>&1"
+  - |
+    mkdir -p /opt/webapp
+    cat > /opt/webapp/app.py << 'PYEOF'
+    from flask import Flask
+    import subprocess, sys
+    app = Flask(__name__)
+
+    @app.route('/')
+    def index():
+        result = subprocess.run(
+            ['psql', '-U', 'postgres', '-d', 'appdb', '-c', 'SELECT 1'],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            return f"DB Error: {result.stderr}", 500
+        return "Hello from the Flask app! DB is connected.", 200
+
+    if __name__ == '__main__':
+        app.run(host='127.0.0.1', port=5000)
+    PYEOF
+  - |
+    cat > /etc/systemd/system/flask-app.service << 'EOF'
+    [Unit]
+    Description=Flask Web Application
+    After=postgresql.service
+    Requires=postgresql.service
+
+    [Service]
+    ExecStart=/usr/bin/python3 /opt/webapp/app.py
+    Restart=on-failure
+    RestartSec=3
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+  - "systemctl daemon-reload"
+  - "systemctl start postgresql || true"
+  - "sleep 2"
+  - "su - postgres -c \"psql -c 'CREATE DATABASE appdb;'\" 2>/dev/null || true"
+  - |
+    # Break pg_hba.conf — reject all local connections
+    PG_HBA=$(find /etc/postgresql -name pg_hba.conf 2>/dev/null | head -1)
+    if [ -n "$PG_HBA" ]; then
+      cp "$PG_HBA" "${PG_HBA}.bak"
+      echo '# Broken config — reject everything' > "$PG_HBA"
+      echo 'local   all   all   reject' >> "$PG_HBA"
+      echo 'host    all   all   127.0.0.1/32   reject' >> "$PG_HBA"
+      echo 'host    all   all   ::1/128        reject' >> "$PG_HBA"
+      systemctl reload postgresql 2>/dev/null || true
+    fi
+  - |
+    # Configure nginx as reverse proxy
+    cat > /etc/nginx/sites-available/default << 'EOF'
+    server {
+        listen 80 default_server;
+        location / {
+            proxy_pass http://127.0.0.1:5000;
+            proxy_set_header Host $host;
+        }
+    }
+    EOF
+  - "systemctl restart nginx || true"
+  - "systemctl start flask-app || true"
+  - "sleep 2"
+validation_steps:
+  - command: "curl -s -o /dev/null -w '%{http_code}' http://localhost:80"
+    expected_exit: 0
+    hint: "nginx should return HTTP 200. Check if all services are running in the right order."
+  - command: "curl -s http://localhost:80 | grep -q 'Hello from the Flask app'"
+    expected_exit: 0
+    hint: "The Flask app should respond with 'Hello from the Flask app'. Is PostgreSQL accepting connections?"
+  - command: "systemctl is-active postgresql"
+    expected_exit: 0
+    hint: "PostgreSQL must be running."
+  - command: "systemctl is-active flask-app"
+    expected_exit: 0
+    hint: "The flask-app service must be active."
+  - command: "su - postgres -c \"psql -d appdb -c 'SELECT 1'\" 2>/dev/null"
+    expected_exit: 0
+    hint: "PostgreSQL should accept local connections. Check pg_hba.conf."
+instructions: |
+  ## Your mission: Debug a cascading multi-service failure
+
+  This system has three services that depend on each other:
+  ```
+  nginx (port 80) → Flask app (port 5000) → PostgreSQL (appdb)
+  ```
+
+  **nginx** is returning **502 Bad Gateway**. Your job is to trace the root cause
+  through the dependency chain and fix it.
+
+  ### Step 1 — Check the symptom
+  ```
+  curl http://localhost
+  ```
+  You should see a 502 error.
+
+  ### Step 2 — Check nginx error logs
+  ```
+  journalctl -u nginx --no-pager -n 20
+  tail /var/log/nginx/error.log
+  ```
+  Look for "upstream" errors pointing at port 5000.
+
+  ### Step 3 — Check the Flask app
+  ```
+  systemctl status flask-app
+  journalctl -u flask-app --no-pager -n 30
+  ```
+  The Flask app is crashing because it can't connect to PostgreSQL.
+
+  ### Step 4 — Check PostgreSQL
+  ```
+  systemctl status postgresql
+  su - postgres -c "psql -c 'SELECT 1'"
+  ```
+  PostgreSQL is running but **rejecting connections**. The error should mention `pg_hba.conf`.
+
+  ### Step 5 — Fix pg_hba.conf
+  Find and edit the config:
+  ```
+  find /etc/postgresql -name pg_hba.conf
+  nano /etc/postgresql/*/main/pg_hba.conf
+  ```
+
+  Replace the broken `reject` rules with:
+  ```
+  local   all   all   trust
+  host    all   all   127.0.0.1/32   trust
+  host    all   all   ::1/128        trust
+  ```
+
+  ### Step 6 — Restart in the right order
+  ```
+  systemctl reload postgresql
+  systemctl restart flask-app
+  ```
+  Wait a moment, then verify:
+  ```
+  curl http://localhost
+  ```
+
+  **Key DevOps lesson:** When services depend on each other, always debug
+  from the bottom of the dependency chain upward. Fix the root cause (PostgreSQL),
+  then let dependent services recover.

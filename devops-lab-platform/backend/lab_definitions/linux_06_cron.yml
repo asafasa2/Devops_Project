@@ -1,0 +1,92 @@
+id: linux_06_cron
+title: "Schedule a job with cron"
+subject: linux
+difficulty: beginner
+estimated_minutes: 20
+containers:
+  - name: lab-host
+    image: devops-lab/base-linux:latest
+    privileged: true
+    environment:
+      - LAB_ID=linux_06
+objectives:
+  - "Understand the crontab format (minute hour day month weekday)"
+  - "Start the cron daemon"
+  - "Schedule /opt/lab/rotate_logs.sh to run every minute"
+  - "Confirm the job ran by checking /var/log/lab/rotated.log"
+setup_commands:
+  - "mkdir -p /opt/lab /var/log/lab"
+  - |
+    cat > /opt/lab/rotate_logs.sh << 'SCRIPT'
+    #!/bin/bash
+    echo "Log rotated at $(date)" >> /var/log/lab/rotated.log
+    SCRIPT
+  - "chmod +x /opt/lab/rotate_logs.sh"
+  - "systemctl enable cron || systemctl enable crond || true"
+validation_steps:
+  - command: "crontab -l 2>/dev/null | grep -q 'rotate_logs.sh'"
+    expected_exit: 0
+    hint: "No crontab entry found for rotate_logs.sh. Run: crontab -e and add the schedule."
+  - command: "systemctl is-active cron 2>/dev/null || systemctl is-active crond 2>/dev/null"
+    expected_exit: 0
+    hint: "The cron daemon is not running. Start it: systemctl start cron"
+  - command: "test -f /var/log/lab/rotated.log"
+    expected_exit: 0
+    hint: "rotated.log does not exist yet — wait up to 60 seconds after adding the crontab entry, then validate again."
+instructions: |
+  ## Your mission: Schedule a log rotation job
+
+  A script at `/opt/lab/rotate_logs.sh` needs to run every minute via cron.
+
+  ---
+
+  ### Step 1 — Start the cron daemon
+  ```
+  systemctl start cron
+  systemctl status cron
+  ```
+
+  ---
+
+  ### Step 2 — Add a crontab entry
+
+  Open your crontab for editing:
+  ```
+  crontab -e
+  ```
+
+  Add this line to run the script every minute:
+  ```
+  * * * * * /opt/lab/rotate_logs.sh
+  ```
+
+  Crontab format:
+  ```
+  ┌───── minute (0-59)
+  │ ┌─── hour (0-23)
+  │ │ ┌─ day of month (1-31)
+  │ │ │ ┌ month (1-12)
+  │ │ │ │ ┌ weekday (0-7, 0=Sun)
+  * * * * *  command
+  ```
+
+  Save and exit (`Ctrl+X` in nano, `:wq` in vim).
+
+  ---
+
+  ### Step 3 — Verify it was saved
+  ```
+  crontab -l
+  ```
+
+  ---
+
+  ### Step 4 — Wait and check
+  Wait up to 60 seconds, then:
+  ```
+  cat /var/log/lab/rotated.log
+  ```
+
+  You should see lines like: `Log rotated at Mon Jan 1 00:01:00 UTC 2024`
+
+  Once the log file exists, click **Validate**.

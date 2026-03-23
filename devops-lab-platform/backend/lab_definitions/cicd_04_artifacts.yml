@@ -1,0 +1,142 @@
+id: cicd_04_artifacts
+title: "Fix a broken build artifact pipeline"
+subject: cicd
+difficulty: intermediate
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/cicd-lab:latest
+    privileged: false
+    environment:
+      - LAB_ID=cicd_04
+objectives:
+  - "Understand the build → package → archive artifact pattern"
+  - "Fix the build script so it creates the artifacts directory"
+  - "Ensure the artifact is correctly packaged as app.tar.gz"
+  - "Verify the artifact exists and has reasonable size"
+setup_commands:
+  - "mkdir -p /workspace/src"
+  - |
+    cat > /workspace/src/app.py << 'EOF'
+    #!/usr/bin/env python3
+    """Sample application."""
+
+    def greet(name):
+        return f"Hello, {name}!"
+
+    if __name__ == "__main__":
+        print(greet("World"))
+    EOF
+  - |
+    cat > /workspace/src/requirements.txt << 'EOF'
+    # No dependencies for this example
+    EOF
+  - |
+    cat > /workspace/build.sh << 'EOF'
+    #!/bin/bash
+    # Multi-stage build script
+    set -e
+
+    echo "=== Stage 1: Lint ==="
+    python3 -m py_compile /workspace/src/app.py
+    echo "Lint passed"
+
+    echo "=== Stage 2: Test ==="
+    python3 -c "
+    import sys
+    sys.path.insert(0, '/workspace/src')
+    from app import greet
+    assert greet('World') == 'Hello, World!', 'Test failed'
+    print('Tests passed')
+    "
+
+    echo "=== Stage 3: Build ==="
+    # BUG: artifacts directory is never created
+    # tar will fail because /workspace/artifacts/ doesn't exist
+    VERSION="1.0.$(date +%s)"
+    echo "$VERSION" > /workspace/artifacts/version.txt
+    tar czf /workspace/artifacts/app.tar.gz \
+        -C /workspace/src \
+        app.py requirements.txt
+    echo "Build complete. Artifact: /workspace/artifacts/app.tar.gz"
+
+    echo "=== Stage 4: Verify ==="
+    SIZE=$(du -k /workspace/artifacts/app.tar.gz | cut -f1)
+    if [ "$SIZE" -lt 1 ]; then
+        echo "ERROR: Artifact is empty!"
+        exit 1
+    fi
+    echo "Artifact size: ${SIZE}KB"
+    echo "Build pipeline SUCCESS"
+    EOF
+  - "chmod +x /workspace/build.sh"
+validation_steps:
+  - command: "test -f /workspace/artifacts/app.tar.gz"
+    expected_exit: 0
+    hint: "Artifact file not found. Run /workspace/build.sh — fix the script so it creates /workspace/artifacts/ before writing to it."
+  - command: "test -s /workspace/artifacts/app.tar.gz"
+    expected_exit: 0
+    hint: "app.tar.gz exists but is empty. Check that the tar command runs after the directory is created."
+  - command: "tar tzf /workspace/artifacts/app.tar.gz | grep -q 'app.py'"
+    expected_exit: 0
+    hint: "app.tar.gz doesn't contain app.py. Check the tar command arguments in build.sh."
+  - command: "bash /workspace/build.sh"
+    expected_exit: 0
+    hint: "build.sh is still failing. Read the error output carefully — look for the missing directory issue."
+instructions: |
+  ## Your mission: Fix the artifact build script
+
+  The build script has a bug: it tries to write files to `/workspace/artifacts/`
+  before creating that directory. The `tar` command fails because the destination
+  directory doesn't exist.
+
+  ### Step 1 — Try running the broken script
+  ```
+  bash /workspace/build.sh
+  ```
+
+  You should see an error like: `cannot stat: No such file or directory`
+
+  ### Step 2 — Read the script
+  ```
+  cat /workspace/build.sh
+  ```
+
+  Find Stage 3 (Build). The bug is clear: it writes to `/workspace/artifacts/` but
+  never creates the directory.
+
+  ### Step 3 — Fix the script
+  ```
+  nano /workspace/build.sh
+  ```
+
+  In Stage 3, add a `mkdir -p` before the first write:
+  ```bash
+  echo "=== Stage 3: Build ==="
+  mkdir -p /workspace/artifacts    # ← add this line
+  VERSION="1.0.$(date +%s)"
+  echo "$VERSION" > /workspace/artifacts/version.txt
+  tar czf /workspace/artifacts/app.tar.gz ...
+  ```
+
+  ### Step 4 — Run the fixed script
+  ```
+  bash /workspace/build.sh
+  ```
+
+  All 4 stages should complete and print `Build pipeline SUCCESS`.
+
+  ### Step 5 — Inspect the artifact
+  ```
+  ls -lh /workspace/artifacts/
+  tar tzf /workspace/artifacts/app.tar.gz    # list contents
+  ```
+
+  **Why artifacts matter in CI/CD:**
+  - Build once, deploy many times (same artifact to staging + production)
+  - Artifact contains only what's needed to run (not source or dev tools)
+  - Version in the artifact name enables rollbacks
+
+  Once all stages pass and the artifact exists, click **Validate**.

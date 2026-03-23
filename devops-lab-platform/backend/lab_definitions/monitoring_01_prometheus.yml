@@ -1,0 +1,127 @@
+id: monitoring_01_prometheus
+title: "Fix a broken Prometheus configuration"
+subject: monitoring
+difficulty: beginner
+estimated_minutes: 25
+editor_enabled: true
+editor_default_path: /workspace
+containers:
+  - name: lab-host
+    image: devops-lab/monitoring-lab:latest
+    privileged: true
+    environment:
+      - LAB_ID=monitoring_01
+objectives:
+  - "Understand the structure of prometheus.yml"
+  - "Fix three configuration errors using promtool check config"
+  - "Restart Prometheus and verify it is scraping targets"
+  - "Run basic PromQL queries against live metrics"
+setup_commands:
+  - "systemctl start prometheus-node-exporter || true"
+  - "sleep 2"
+  - |
+    cat > /etc/prometheus/prometheus.yml << 'EOF'
+    global:
+      scrape_interval: 1minute    # BUG 1: invalid duration — should be "1m"
+      evaluation_interval: 15s
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ['localhost:9090']
+
+      - job_name: node
+        static_configs:
+          - targets: [localhost:9100]    # BUG 2: missing quotes around target
+
+      - job_name: prometheus    # BUG 3: duplicate job_name "prometheus"
+        static_configs:
+          - targets: ['localhost:9090']
+    EOF
+  - "systemctl stop prometheus || true"
+  - "sleep 1"
+validation_steps:
+  - command: "promtool check config /etc/prometheus/prometheus.yml"
+    expected_exit: 0
+    hint: "Run 'promtool check config /etc/prometheus/prometheus.yml' to see exact errors. Fix duration syntax, target format, and remove duplicate job names."
+  - command: "systemctl is-active prometheus"
+    expected_exit: 0
+    hint: "After fixing the config, run: systemctl restart prometheus"
+  - command: "curl -sf http://localhost:9090/api/v1/targets | jq -e '[.data.activeTargets[] | select(.health==\"up\")] | length > 0'"
+    expected_exit: 0
+    hint: "Prometheus is running but no targets are UP. Check 'curl http://localhost:9090/api/v1/targets | jq .'"
+instructions: |
+  ## Your mission: Fix a broken Prometheus configuration
+
+  The Prometheus config at `/etc/prometheus/prometheus.yml` has three bugs.
+  Use `promtool` to find and fix them, then restart Prometheus.
+
+  ### The tool: promtool
+
+  Prometheus ships with `promtool` — a CLI for validating configs and rules:
+
+  ```bash
+  promtool check config /etc/prometheus/prometheus.yml
+  ```
+
+  Run this after every edit. It shows you exactly what is wrong.
+
+  ### Bug 1 — Invalid duration syntax
+
+  Prometheus uses Go duration strings: `15s`, `1m`, `5m`, `1h`.
+  The word `minute` is not valid — use `m`.
+
+  ```yaml
+  global:
+    scrape_interval: 1m       # correct
+    evaluation_interval: 15s
+  ```
+
+  ### Bug 2 — Malformed target
+
+  Targets in `static_configs` must be quoted strings:
+
+  ```yaml
+  static_configs:
+    - targets: ['localhost:9100']   # correct — quoted
+  ```
+
+  ### Bug 3 — Duplicate job_name
+
+  Every `job_name` in `scrape_configs` must be unique. Remove the second `prometheus` job block entirely.
+
+  ### After fixing
+
+  ```bash
+  # Validate
+  promtool check config /etc/prometheus/prometheus.yml
+
+  # Restart Prometheus
+  systemctl restart prometheus
+
+  # Check it is running
+  systemctl status prometheus
+
+  # Verify targets are being scraped
+  curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
+  ```
+
+  ### Explore with PromQL
+
+  Once Prometheus is up, try some queries:
+
+  ```bash
+  # Is node_exporter reachable?
+  curl -s 'http://localhost:9090/api/v1/query?query=up' | jq '.data.result[] | {job: .metric.job, value: .value[1]}'
+
+  # CPU usage (if node_exporter is running)
+  curl -s 'http://localhost:9090/api/v1/query?query=rate(node_cpu_seconds_total{mode="idle"}[1m])' | jq '.data.result | length'
+
+  # Prometheus scrape duration
+  curl -s 'http://localhost:9090/api/v1/query?query=scrape_duration_seconds' | jq '.data.result'
+  ```
+
+  Click **Validate** once `promtool check config` passes, Prometheus is active, and at least one target is UP.
